@@ -11,7 +11,7 @@ Thanks for wanting to help. Pull requests are welcome.
 
 1. Open an issue first for anything bigger than a small fix, so we agree on the direction.
 2. Fork the repository, create a branch, make your change.
-3. Run `npm test` and `npm run build` (Node.js 20 or newer; `npm install` downloads the tracking models once).
+3. Run `npm test` and `npm run build` (Node.js 22.18 or newer; `npm install` downloads the tracking models once).
 4. Add or update tests for the behaviour you change. The logic in `analysis.ts`, `coach.ts`, `store.ts` and `video.ts`
    has no browser dependencies, which keeps it easy to test.
 5. Keep it simple: few dependencies, no server, no external requests at run time.

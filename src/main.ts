@@ -864,7 +864,7 @@ function log(view: HTMLElement): void {
       <section class="section"><div class="grid g21">
         <div class="rise"><div class="section-head"><h2>Weekly volume</h2></div>${data.exercises.length ? '<div class="chartbox"><canvas id="vol"></canvas></div>' : '<p class="muted">Log exercises to see your weekly volume.</p>'}</div>
         <div class="tile stack rise"><h2>Log an exercise</h2>
-          <div class="pills">${SUGGESTIONS.map((s) => `<button class="pill" data-s="${s}" style="padding:5px 12px;font-size:13px">${s}</button>`).join('')}</div>
+          <div class="pills">${SUGGESTIONS.map((s) => `<button class="pill" data-s="${s}" data-sug>${s}</button>`).join('')}</div>
           <form id="f" class="stack">
             <input name="name" placeholder="Exercise" required>
             <div class="row" style="flex-wrap:nowrap"><input name="sets" type="number" min="1" placeholder="Sets" required><input name="reps" type="number" min="1" placeholder="Reps" required></div>

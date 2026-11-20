@@ -1,4 +1,8 @@
-﻿<h1 align="center">HOOP LAB.</h1>
+<p align="center">
+  <img src="public/icons/icon-192.png" alt="Hoop Lab logo" width="96" height="96">
+</p>
+
+<h1 align="center">Hoop Lab</h1>
 
 <p align="center">
   <b>Film your jump or your shot. Get the numbers and what to fix.</b><br>
@@ -80,7 +84,7 @@ Hoop Lab does not replace a force plate. It gives you a consistent, free measure
 
 ## Install and use
 
-You need Node.js 20 or newer.
+You need Node.js 22.18 or newer.
 
 ```powershell
 npm install   # first time only: copies the WASM runtime and downloads the tracking models (about 50 MB)
