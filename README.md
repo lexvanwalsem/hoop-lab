@@ -106,6 +106,20 @@ and import it somewhere else.
   <img src="docs/filming-guide.png" alt="The filming guide with camera diagrams (demo data)" width="900">
 </p>
 
+## On your phone
+
+Hoop Lab is a progressive web app (PWA): host the built app once and install it from the browser. The tracking runs
+on the phone itself, there is no server doing the work.
+
+1. `npm run build`, then upload the `dist` folder to any static host with HTTPS (for example Netlify). The models are
+   about 50 MB, so choose a host that allows files that large.
+2. Open the address on the phone. iPhone: Safari, Share, Add to Home Screen. Android: Chrome, Install app.
+3. After the first start the app and its models are cached, so it also works offline.
+
+HTTPS is required for installing and for camera access. A plain `http://` address on your wifi still works for
+analyzing videos, just not for installing. Results live in the browser or app you used: use **Your data** on the
+dashboard to move a backup between devices. Speed depends on the phone, and tracking is slower on older ones.
+
 ## Filming in short
 
 - Phone on a tripod or something solid. It must not move.
@@ -163,7 +177,8 @@ The in-app **Filming** page has the full version with diagrams.
 - Compare two sessions side by side
 - Draw the tracked skeleton on top of your original video
 - A free-throw and layup mode
-- Installable as an offline web app (PWA)
+- A live camera view with a body outline, so you can check your framing before you film
+- A lighter tracking model as an option for older phones
 
 ## Development
 
@@ -183,6 +198,7 @@ npm run build    # type check and production build into dist/
 | `src/demo.ts` | Sample data for `?demo` |
 | `src/charts.ts`, `src/gauge.ts`, `src/art.ts` | Charts, range gauges, icons and illustrations |
 | `src/main.ts`, `src/style.css` | The interface |
+| `public/sw.js`, `public/manifest.webmanifest` | Offline support and install on a phone |
 | `tests/` | Synthetic clips and unit tests |
 
 The visual rules are in [DESIGN.md](DESIGN.md) and the licenses of what Hoop Lab builds on are in

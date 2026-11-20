@@ -40,7 +40,7 @@ async function withGpuFallback<T>(make: (delegate: 'GPU' | 'CPU') => Promise<T>)
 const createPoseLandmarker = (files: Files) =>
   withGpuFallback((delegate) =>
     PoseLandmarker.createFromOptions(files, {
-      baseOptions: { modelAssetPath: '/models/pose_landmarker_heavy.task', delegate },
+      baseOptions: { modelAssetPath: import.meta.env.BASE_URL + 'models/pose_landmarker_heavy.task', delegate },
       runningMode: 'VIDEO',
       numPoses: 1,
     }),
@@ -49,7 +49,7 @@ const createPoseLandmarker = (files: Files) =>
 const createBallDetector = (files: Files) =>
   withGpuFallback((delegate) =>
     ObjectDetector.createFromOptions(files, {
-      baseOptions: { modelAssetPath: '/models/efficientdet_lite2.tflite', delegate },
+      baseOptions: { modelAssetPath: import.meta.env.BASE_URL + 'models/efficientdet_lite2.tflite', delegate },
       runningMode: 'VIDEO',
       scoreThreshold: 0.15,
       maxResults: 5,
@@ -91,7 +91,7 @@ export async function extractPose(
   signal?: AbortSignal,
 ): Promise<Pose> {
   if (!video.videoWidth) await waitFor(video, 'loadedmetadata', 15000);
-  const files = await FilesetResolver.forVisionTasks('/wasm');
+  const files = await FilesetResolver.forVisionTasks(import.meta.env.BASE_URL + 'wasm');
   const landmarker = await createPoseLandmarker(files);
   const detector = trackBall ? await createBallDetector(files) : null;
   const count = Math.floor(video.duration * fps);

@@ -402,3 +402,26 @@ a:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--focus); }
 [hidden] { display: none !important; }
 
 #info:empty { display: none; }
+
+/* ---------- framing panel (Filming page) ---------- */
+.guide-grid .lead { grid-column: 1 / -1; }
+.fpanel { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
+.fcell { display: flex; flex-direction: column; gap: 16px; margin: 0; padding: 20px; border-radius: 16px; background: var(--bg); }
+.fcell .phone { width: auto; height: 240px; max-width: 100%; align-self: center; color: var(--muted); }
+.fcell.right .phone { color: var(--fg); }
+.fcell .art.inline { position: static; width: 100%; height: 240px; color: var(--fg); }
+.fcell figcaption { display: grid; grid-template-columns: 24px 1fr; gap: 10px; font-size: 14.5px; line-height: 1.45; color: var(--muted); }
+.fcell.top figcaption { grid-template-columns: 1fr; }
+.fcell figcaption b { display: block; color: var(--fg); font-weight: 600; }
+.verdict { width: 24px; height: 24px; }
+.verdict.ok { color: var(--good); }
+.verdict.no { color: var(--bad); }
+.fcell .brk { stroke: var(--good); stroke-dasharray: 1; stroke-dashoffset: 1; }
+.rise.in .fcell .brk { animation: draw 700ms var(--ease) 900ms forwards; }
+.fcell .zoom { transform-origin: 60px 196px; }
+.rise.in .fcell .zoom { animation: zoomin 700ms var(--ease) 200ms backwards; }
+@keyframes zoomin { from { transform: scale(0.4); opacity: 0.3; } }
+@media (max-width: 1100px) { .fpanel { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .fpanel { grid-template-columns: minmax(0, 1fr); } }
+@media (prefers-reduced-motion: reduce) { .fcell .brk { stroke-dashoffset: 0; } }
+.guide-band.plain .wrap { min-height: 0; }

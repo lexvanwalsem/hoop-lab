@@ -3,4 +3,4 @@ dist
 public/wasm
 public/models
 *.log
-public/testvideos
+testvideos

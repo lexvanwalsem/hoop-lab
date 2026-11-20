@@ -12,7 +12,7 @@ import { extractPose, type Pose } from './pose';
 import { demoData } from './demo';
 import { exportBackup, importBackup, load, newId, save, sortByDate, today, type Data, type Session } from './store';
 import { probeVideo, type VideoInfo } from './video';
-import { cameraDiagram, frameDiagram, icon, jumpFigure, phaseNames, runFigures, sparkline } from './art';
+import { framingPanel, icon, jumpFigure, phaseNames, runFigures, sparkline } from './art';
 import { gauge } from './gauge';
 
 const data: Data = load();
@@ -178,7 +178,7 @@ async function show(next: Tab, soft = false): Promise<void> {
     dashboard,
     analyze,
     jump: () => guidePage(view, 'Jump higher', 'Technique, training and how to read your numbers.', jumpFigure(), jumpGuide, true),
-    filming: () => guidePage(view, 'Filming', 'Good footage in, good numbers out.', frameDiagram() + cameraDiagram(), filmingGuide, false),
+    filming: () => guidePage(view, 'Filming', 'Good footage in, good numbers out.', '', filmingGuide, false, framingPanel()),
     log,
   })[tab](view);
   animateIn(view, soft);
@@ -815,7 +815,7 @@ function renderResult(out: HTMLElement, video: HTMLVideoElement, pose: Pose, r: 
 
 // ---------- guides ----------
 
-function guidePage(view: HTMLElement, title: string, subtitle: string, art: string, sections: Section[], phases: boolean): void {
+function guidePage(view: HTMLElement, title: string, subtitle: string, art: string, sections: Section[], phases: boolean, lead = ''): void {
   const legend = [['strength', 'Strength', 'var(--jump)'], ['speed', 'Speed', 'var(--fg)'], ['plyo', 'Plyometrics', 'var(--shot)'], ['rest', 'Rest', 'var(--border)']];
   const body = (s: Section): string => {
     if (s.layout === 'steps') {
@@ -827,8 +827,9 @@ function guidePage(view: HTMLElement, title: string, subtitle: string, art: stri
     return `<div class="cards">${s.items.map((it) => `<div class="cardi"><div class="bub">${icon(it.icon ?? 'check', 24)}</div><h3>${esc(it.t)}</h3><p>${esc(it.d)}</p></div>`).join('')}</div>`;
   };
   view.innerHTML = `
-    <section class="band guide-band">${art}<div class="wrap"><div class="kicker rise">Guide</div><h1 class="display rise">${esc(title)}</h1><p class="rise">${esc(subtitle)}</p>${phases ? `<div class="phases rise">${phaseNames.map((n) => `<span>${n}</span>`).join('')}</div>` : ''}</div></section>
+    <section class="band guide-band${art ? '' : ' plain'}">${art}<div class="wrap"><div class="kicker rise">Guide</div><h1 class="display rise">${esc(title)}</h1><p class="rise">${esc(subtitle)}</p>${phases ? `<div class="phases rise">${phaseNames.map((n) => `<span>${n}</span>`).join('')}</div>` : ''}</div></section>
     <div class="wrap"><div class="section guide-grid" style="padding-bottom:80px">
+      ${lead ? `<section class="tile lead rise"><h2>What the camera should see</h2>${lead}</section>` : ''}
       ${sections
         .map((s) => {
           const wide = s.layout === 'week' || (s.layout === 'cards' && s.items.length >= 5);
@@ -905,3 +906,10 @@ void Promise.race([
   shell();
   void route();
 });
+
+// Offline support and durable storage. Only in the production build: during development a cache gets in the way.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => void navigator.serviceWorker.register('./sw.js').catch(() => undefined));
+}
+// asks the browser not to evict results when storage is tight (iOS Safari clears idle sites otherwise)
+void navigator.storage?.persist?.().catch(() => undefined);

@@ -187,8 +187,8 @@ export function runFigures(root: HTMLElement, reduceMotion: boolean): () => void
 
 export const phaseNames = PHASES;
 /** Top view: where the phone goes relative to the athlete. */
-export function cameraDiagram(): string {
-  return `<svg class="art cam" viewBox="0 0 360 220" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+export function cameraDiagram(inline = false): string {
+  return `<svg class="art cam${inline ? ' inline' : ''}" viewBox="0 0 360 220" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <path d="M62 110L250 52V168z" fill="currentColor" opacity="0.1" stroke="none"/>
     <path class="flow" d="M62 110H238" stroke-dasharray="5 7"/>
     <g transform="translate(26 92)"><rect width="30" height="36" rx="7" fill="currentColor" stroke="none" opacity="0.9"/><circle cx="15" cy="18" r="6" fill="var(--on-accent)" stroke="none"/></g>
@@ -210,6 +210,47 @@ export function frameDiagram(): string {
     <text x="75" y="222" text-anchor="middle" fill="currentColor" stroke="none" font-size="11" font-weight="600">50%+ of height</text>
   </svg>`;
 }
+const VERDICT = (ok: boolean): string =>
+  `<svg class="verdict ${ok ? 'ok' : 'no'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><path d="${ok ? 'M7 12.5l3.5 3.5L17 9' : 'M8 8l8 8M16 8l-8 8'}"/></svg>`;
+
+/** One phone screen: what the camera sees. The scene is clipped to the screen. */
+function phone(id: string, scene: string, extra = ''): string {
+  return `<svg class="phone" viewBox="0 0 120 220" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><defs><clipPath id="${id}"><rect x="6" y="6" width="108" height="208" rx="12"/></clipPath></defs><rect x="3" y="3" width="114" height="214" rx="15"/><g clip-path="url(#${id})">${scene}</g>${extra}</svg>`;
+}
+
+function framingCell(ok: boolean, svg: string, title: string, text: string): string {
+  return `<figure class="fcell ${ok ? 'right' : 'wrong'}">${svg}<figcaption>${VERDICT(ok)}<span><b>${title}</b>${text}</span></figcaption></figure>`;
+}
+
+/** A person standing at x, feet on groundY, `h` tall. Solid shapes, so it still reads when it is small. */
+function standing(x: number, groundY: number, h: number): string {
+  const s = h / 100;
+  const top = groundY - h;
+  const hip = top + 55 * s;
+  return `<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M${x - 5 * s} ${groundY}L${x - 3 * s} ${hip}M${x + 5 * s} ${groundY}L${x + 3 * s} ${hip}" stroke-width="${7 * s}"/>
+    <path d="M${x} ${top + 18 * s}V${hip}" stroke-width="${14 * s}"/>
+    <path d="M${x - 8 * s} ${top + 21 * s}L${x - 11 * s} ${top + 46 * s}M${x + 8 * s} ${top + 21 * s}L${x + 11 * s} ${top + 46 * s}" stroke-width="${5 * s}"/>
+    <circle cx="${x}" cy="${top + 8 * s}" r="${7.5 * s}" fill="currentColor" stroke="none"/></g>`;
+}
+
+/** Right and wrong framing side by side, plus where the phone goes. */
+export function framingPanel(): string {
+  const far = phone('cl-far', `<line x1="6" y1="196" x2="114" y2="196" opacity="0.3"/>${standing(60, 196, 38)}`);
+  const cut = phone('cl-cut', standing(60, 262, 200));
+  const good = phone(
+    'cl-ok',
+    `<line x1="6" y1="196" x2="114" y2="196" opacity="0.3"/><g class="zoom">${standing(60, 196, 112)}</g>`,
+    '<path class="brk" pathLength="1" d="M20 84v112M14 84h12M14 196h12"/>',
+  );
+  return `<div class="fpanel">
+    ${framingCell(false, far, 'Too far', 'The figure is small, so joint angles get noisy.')}
+    ${framingCell(false, cut, 'Cut off', 'Feet or hands leave the frame, so they cannot be measured.')}
+    ${framingCell(true, good, 'Just right', 'The whole body in frame, at least half of the height.')}
+    <figure class="fcell top">${cameraDiagram(true)}<figcaption><span><b>Side-on, 4-5 m</b>Phone at hip height on a tripod, pointing at your side.</span></figcaption></figure>
+  </div>`;
+}
+
 /** Tiny trend line for a stat tile. */
 export function sparkline(values: number[], w = 140, h = 36): string {
   if (values.length < 2) return '';
