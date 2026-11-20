@@ -39,6 +39,8 @@ finds your joints in every frame, finds each jump or shot in the clip and measur
 - **Advice:** every metric that is flagged comes with a plain explanation and concrete drills, with sets and reps.
 - **Progress:** a dashboard with your jump trend, shot score, personal bests, the habits that keep coming back, and an
   exercise log.
+- **Framing check:** a live camera view that tracks your body and tells you what to fix before you film: whole body in
+  frame, big enough with room to jump, side-on, enough light. Nothing is recorded; you then film with your camera app.
 - **Guides:** how to film so the numbers are good, and how to jump higher (technique, training, a simple week).
 
 <p align="center">
@@ -177,7 +179,6 @@ The in-app **Filming** page has the full version with diagrams.
 - Compare two sessions side by side
 - Draw the tracked skeleton on top of your original video
 - A free-throw and layup mode
-- A live camera view with a body outline, so you can check your framing before you film
 - A lighter tracking model as an option for older phones
 
 ## Development
@@ -190,6 +191,7 @@ npm run build    # type check and production build into dist/
 | File | What it does |
 |---|---|
 | `src/pose.ts` | Steps through a video and runs pose and ball detection |
+| `src/camera.ts`, `src/framing.ts` | The live framing check and its pure rules |
 | `src/video.ts` | Reads the frame rate from the MP4 or MOV header, probes the video |
 | `src/analysis.ts` | Calibration, jump and shot detection, metrics |
 | `src/coach.ts` | Advice and drills per flagged metric |

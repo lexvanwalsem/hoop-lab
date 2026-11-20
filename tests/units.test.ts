@@ -111,3 +111,39 @@ test('readFileFps ignores non-video tracks and files without a header', async ()
   assert.equal(await readFileFps(fakeMp4(600, 120, 10, 'soun')), null);
   assert.equal(await readFileFps(new File([new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 8])], 'x.mov')), null);
 });
+
+// ---- the live framing check, on hand-made landmarks ----
+
+import { checkFraming } from '../src/framing.ts';
+
+/** A standing person: head at `top`, feet at `bottom`, shoulders `sw` apart (frame width units). */
+function person(top: number, bottom: number, sw = 0.03): { x: number; y: number; v: number }[] {
+  const lm = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, v: 1 }));
+  const span = bottom - top;
+  lm[0] = { x: 0.5, y: top, v: 1 };
+  lm[11] = { x: 0.5 - sw / 2, y: top + span * 0.2, v: 1 };
+  lm[12] = { x: 0.5 + sw / 2, y: top + span * 0.2, v: 1 };
+  lm[23] = { x: 0.5 - sw / 4, y: top + span * 0.55, v: 1 };
+  lm[24] = { x: 0.5 + sw / 4, y: top + span * 0.55, v: 1 };
+  for (const i of [27, 28, 31, 32]) lm[i] = { x: 0.5, y: bottom, v: 1 };
+  return lm;
+}
+
+test('a well framed side-on person is ready', () => {
+  const f = checkFraming(person(0.2, 0.88), 9 / 16, 120);
+  assert.equal(f.ready, true, f.say);
+});
+
+test('the check names what is wrong', () => {
+  assert.match(checkFraming(person(0.6, 0.9), 9 / 16, 120).say, /closer|zoom/i); // far away
+  assert.match(checkFraming(person(0.02, 0.99), 9 / 16, 120).say, /room|back|lower/i); // too big, no headroom
+  assert.match(checkFraming(person(0.2, 0.88, 0.4), 9 / 16, 120).say, /side/i); // facing the camera
+  assert.match(checkFraming(person(0.2, 0.88), 9 / 16, 20).say, /dark|light/i);
+  assert.match(checkFraming(null, 9 / 16).say, /step into/i);
+});
+
+test('feet outside the frame is not whole body', () => {
+  const lm = person(0.2, 0.88);
+  for (const i of [27, 28, 31, 32]) lm[i].y = 1.05;
+  assert.equal(checkFraming(lm, 9 / 16, 120).checks.find((c) => c.id === 'frame')!.ok, false);
+});

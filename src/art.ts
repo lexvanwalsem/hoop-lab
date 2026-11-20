@@ -210,7 +210,7 @@ export function frameDiagram(): string {
     <text x="75" y="222" text-anchor="middle" fill="currentColor" stroke="none" font-size="11" font-weight="600">50%+ of height</text>
   </svg>`;
 }
-const VERDICT = (ok: boolean): string =>
+export const VERDICT = (ok: boolean): string =>
   `<svg class="verdict ${ok ? 'ok' : 'no'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><path d="${ok ? 'M7 12.5l3.5 3.5L17 9' : 'M8 8l8 8M16 8l-8 8'}"/></svg>`;
 
 /** One phone screen: what the camera sees. The scene is clipped to the screen. */

@@ -12,6 +12,7 @@ import { extractPose, type Pose } from './pose';
 import { demoData } from './demo';
 import { exportBackup, importBackup, load, newId, save, sortByDate, today, type Data, type Session } from './store';
 import { probeVideo, type VideoInfo } from './video';
+import { openFramingCheck } from './camera';
 import { framingPanel, icon, jumpFigure, phaseNames, runFigures, sparkline } from './art';
 import { gauge } from './gauge';
 
@@ -553,6 +554,7 @@ function analyze(view: HTMLElement): void {
             <label class="dropzone" id="drop" for="file" tabindex="0" role="button">${icon('upload', 32)}<strong>${chosen ? esc(chosen.file.name) : 'Choose a video'}</strong><span class="muted">${chosen ? 'click to choose another' : 'or drop it here'}</span></label>
             <input id="file" type="file" accept="video/*" hidden>
             <div id="info" class="chips"></div>
+            <button class="btn small" data-cam>Check my framing first</button>
           </div>
           <div class="tile stack rise">
             <label class="field">Height (cm)<input id="height" type="number" min="120" max="240" value="${data.heightCm || ''}" placeholder="193"></label>
@@ -829,7 +831,7 @@ function guidePage(view: HTMLElement, title: string, subtitle: string, art: stri
   view.innerHTML = `
     <section class="band guide-band${art ? '' : ' plain'}">${art}<div class="wrap"><div class="kicker rise">Guide</div><h1 class="display rise">${esc(title)}</h1><p class="rise">${esc(subtitle)}</p>${phases ? `<div class="phases rise">${phaseNames.map((n) => `<span>${n}</span>`).join('')}</div>` : ''}</div></section>
     <div class="wrap"><div class="section guide-grid" style="padding-bottom:80px">
-      ${lead ? `<section class="tile lead rise"><h2>What the camera should see</h2>${lead}</section>` : ''}
+      ${lead ? `<section class="tile lead rise"><h2>What the camera should see</h2>${lead}<div style="margin-top:16px"><button class="btn" data-cam>Check my framing with the camera</button></div></section>` : ''}
       ${sections
         .map((s) => {
           const wide = s.layout === 'week' || (s.layout === 'cards' && s.items.length >= 5);
@@ -905,6 +907,10 @@ void Promise.race([
   }
   shell();
   void route();
+});
+
+document.addEventListener('click', (e) => {
+  if ((e.target as Element).closest('[data-cam]')) openFramingCheck();
 });
 
 // Offline support and durable storage. Only in the production build: during development a cache gets in the way.

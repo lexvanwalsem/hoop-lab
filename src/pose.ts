@@ -123,3 +123,19 @@ export async function extractPose(
   onProgress(1);
   return { fps, width: video.videoWidth, height: video.videoHeight, frames, balls, world };
 }
+
+/** A tracker for a live camera: call detect() on a playing video. Used by the framing check. */
+export async function createLivePose(): Promise<{ detect: (video: HTMLVideoElement) => { x: number; y: number; v: number }[] | null; close: () => void }> {
+  const files = await FilesetResolver.forVisionTasks(import.meta.env.BASE_URL + 'wasm');
+  const landmarker = await createPoseLandmarker(files);
+  let last = -1;
+  return {
+    detect(video) {
+      const ts = Math.max(performance.now(), last + 1); // timestamps must keep increasing
+      last = ts;
+      const lm = landmarker.detectForVideo(video, ts).landmarks[0];
+      return lm ? lm.map((p) => ({ x: p.x, y: p.y, v: p.visibility ?? 0 })) : null;
+    },
+    close: () => landmarker.close(),
+  };
+}
