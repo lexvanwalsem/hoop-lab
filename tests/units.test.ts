@@ -1,0 +1,113 @@
+// Run with: node --test tests/
+// Unit tests for the pure logic around the analysis: targets, advice, storage and the video header reader.
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { recommend } from '../src/coach.ts';
+import { demoData } from '../src/demo.ts';
+import { gauge, parseTarget } from '../src/gauge.ts';
+import { emptyData, exportBackup, importBackup, sanitize } from '../src/store.ts';
+import { readFileFps } from '../src/video.ts';
+
+test('parseTarget reads ranges, minimums and maximums', () => {
+  assert.deepEqual(parseTarget('25-50 cm'), [25, 50]);
+  assert.deepEqual(parseTarget('150+ deg'), [150, Infinity]);
+  assert.deepEqual(parseTarget('under 140 deg'), [-Infinity, 140]);
+  assert.deepEqual(parseTarget('-80 to 40 ms'), [-80, 40]);
+  assert.equal(parseTarget('nonsense'), null);
+});
+
+test('gauge puts the marker inside the bar and skips values it cannot place', () => {
+  const html = gauge('43 cm', '25-50 cm', 'good');
+  const pos = Number(/data-pos="([\d.]+)"/.exec(html)?.[1]);
+  assert.ok(pos > 0 && pos < 100, `marker at ${pos}`);
+  assert.equal(gauge('right', '25-50 cm', 'info'), '');
+  assert.equal(gauge('10 cm', undefined, 'info'), '');
+});
+
+test('recommend only advises on flagged metrics and tells low from high', () => {
+  const shallow = recommend([{ label: 'Countermovement depth', value: '12 cm', status: 'bad' }]);
+  const deep = recommend([{ label: 'Countermovement depth', value: '70 cm', status: 'warn' }]);
+  assert.equal(shallow.length, 1);
+  assert.equal(deep.length, 1);
+  assert.notEqual(shallow[0].title, deep[0].title);
+  assert.deepEqual(recommend([{ label: 'Countermovement depth', value: '40 cm', status: 'good' }]), []);
+  assert.deepEqual(recommend([{ label: 'Flight time', value: '0.7 s', status: 'info' }]), []);
+});
+
+test('sanitize drops broken entries and keeps good ones, oldest first', () => {
+  const clean = sanitize({
+    heightCm: 193,
+    sessions: [
+      { id: 'b', date: '2026-02-01', kind: 'shot', headline: 80, metrics: [{ label: 'x', value: '1', status: 'good' }, { nope: true }], tips: ['t', 5] },
+      { id: 'a', date: '2026-01-01', kind: 'standing', headline: 55, metrics: [] },
+      { id: 'bad1', date: '2026-01-01', kind: 'swim', headline: 1, metrics: [] },
+      { date: 'no id', kind: 'shot', headline: 1, metrics: [] },
+      null,
+    ],
+    exercises: [{ id: 'e', date: '2026-01-02', name: 'Squat', sets: 3, reps: 5 }, { id: 'x', name: 'missing fields' }],
+  });
+  assert.equal(clean.heightCm, 193);
+  assert.deepEqual(clean.sessions.map((s) => s.id), ['a', 'b']);
+  assert.equal(clean.sessions[1].metrics.length, 1);
+  assert.deepEqual(clean.sessions[1].tips, ['t']);
+  assert.equal(clean.exercises.length, 1);
+  assert.deepEqual(sanitize('garbage'), emptyData());
+});
+
+test('a backup round trip adds only what is new', () => {
+  const demo = demoData();
+  const source = { ...emptyData(), heightCm: 193, sessions: demo.sessions.slice(0, 3), exercises: demo.exercises.slice(0, 2) };
+  const text = exportBackup(source);
+  const target = { ...emptyData(), sessions: demo.sessions.slice(0, 1) };
+  const added = importBackup(text, target);
+  assert.deepEqual(added, { sessions: 2, exercises: 2 });
+  assert.equal(target.sessions.length, 3);
+  assert.equal(target.heightCm, 193);
+  assert.deepEqual(importBackup(text, target), { sessions: 0, exercises: 0 }); // importing twice changes nothing
+});
+
+test('a backup that is not ours is refused', () => {
+  const target = emptyData();
+  assert.equal(importBackup('{not json', target), 'This file is not valid JSON.');
+  assert.equal(importBackup('{"app":"something else"}', target), 'This is not a Hoop Lab backup.');
+});
+
+test('demo data is flagged, sorted and uses the same shape as real results', () => {
+  const demo = demoData();
+  assert.ok(demo.sessions.length > 20 && demo.sessions.every((s) => s.demo === true));
+  assert.ok(demo.exercises.every((e) => e.demo === true));
+  const dates = demo.sessions.map((s) => s.date);
+  assert.deepEqual(dates, [...dates].sort());
+  assert.deepEqual(sanitize({ sessions: demo.sessions, exercises: demo.exercises }).sessions.length, demo.sessions.length);
+});
+
+// ---- the video header reader, on a tiny hand-built MP4 ----
+
+const u32 = (n: number): number[] => [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255];
+const box = (type: string, ...parts: number[][]): number[] => {
+  const body = parts.flat();
+  return [...u32(8 + body.length), ...[...type].map((c) => c.charCodeAt(0)), ...body];
+};
+
+/** An MP4 with only the boxes the reader needs: a video track with `samples` frames of `delta` ticks at `timescale`. */
+function fakeMp4(timescale: number, samples: number, delta: number, handler = 'vide'): File {
+  const hdlr = box('hdlr', u32(0), u32(0), [...handler].map((c) => c.charCodeAt(0)), u32(0), u32(0), u32(0), [0]);
+  const mdhd = box('mdhd', u32(0), u32(0), u32(0), u32(timescale), u32(samples * delta), u32(0));
+  const stts = box('stts', u32(0), u32(1), u32(samples), u32(delta));
+  const minf = box('minf', box('stbl', stts));
+  const moov = box('moov', box('trak', box('mdia', mdhd, hdlr, minf)));
+  const mdat = box('mdat', [1, 2, 3, 4]); // a body before the header, like a real phone file
+  return new File([new Uint8Array([...box('ftyp', [...'isom'].map((c) => c.charCodeAt(0)), u32(0)), ...mdat, ...moov])], 'clip.mov');
+}
+
+test('readFileFps reads the exact frame rate from the header', async () => {
+  assert.equal(Math.round((await readFileFps(fakeMp4(600, 120, 10))) ?? 0), 60);
+  assert.equal(Math.round((await readFileFps(fakeMp4(30000, 90, 1001))) ?? 0), 30);
+  const odd = (await readFileFps(fakeMp4(600, 1000, 10))) ?? 0;
+  assert.ok(Math.abs(odd - 60) < 1e-9);
+});
+
+test('readFileFps ignores non-video tracks and files without a header', async () => {
+  assert.equal(await readFileFps(fakeMp4(600, 120, 10, 'soun')), null);
+  assert.equal(await readFileFps(new File([new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 8])], 'x.mov')), null);
+});

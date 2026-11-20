@@ -1,0 +1,125 @@
+import { FilesetResolver, ObjectDetector, PoseLandmarker } from '@mediapipe/tasks-vision';
+import { VIDEO_ERROR } from './video';
+
+export interface Pt {
+  x: number; // normalized 0..1
+  y: number; // normalized 0..1, down is positive
+}
+
+export interface Pose {
+  fps: number;
+  width: number;
+  height: number;
+  frames: (Pt[] | null)[]; // one entry per sampled frame, null when no person found
+  balls: (Pt | null)[]; // ball center per frame, null when no ball found
+  world: (Pt3[] | null)[]; // 3D landmarks in meters (hip-centered), independent of camera angle
+}
+
+export interface Pt3 {
+  x: number;
+  y: number;
+  z: number;
+}
+
+type Files = Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>>;
+
+const MODELS_MISSING = 'The tracking models could not be loaded. Run "npm install" once so they are downloaded to public/models, then restart the app.';
+
+async function withGpuFallback<T>(make: (delegate: 'GPU' | 'CPU') => Promise<T>): Promise<T> {
+  try {
+    return await make('GPU');
+  } catch {
+    try {
+      return await make('CPU');
+    } catch {
+      throw new Error(MODELS_MISSING);
+    }
+  }
+}
+
+const createPoseLandmarker = (files: Files) =>
+  withGpuFallback((delegate) =>
+    PoseLandmarker.createFromOptions(files, {
+      baseOptions: { modelAssetPath: '/models/pose_landmarker_heavy.task', delegate },
+      runningMode: 'VIDEO',
+      numPoses: 1,
+    }),
+  );
+
+const createBallDetector = (files: Files) =>
+  withGpuFallback((delegate) =>
+    ObjectDetector.createFromOptions(files, {
+      baseOptions: { modelAssetPath: '/models/efficientdet_lite2.tflite', delegate },
+      runningMode: 'VIDEO',
+      scoreThreshold: 0.15,
+      maxResults: 5,
+      categoryAllowlist: ['sports ball'],
+    }),
+  );
+
+/** Waits for a video event. Listeners are removed afterwards and a stalled video fails instead of hanging forever. */
+function waitFor(el: HTMLVideoElement, event: 'loadedmetadata' | 'seeked', timeoutMs: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const cleanup = (): void => {
+      clearTimeout(timer);
+      el.removeEventListener(event, ok);
+      el.removeEventListener('error', bad);
+    };
+    const ok = (): void => {
+      cleanup();
+      resolve();
+    };
+    const bad = (): void => {
+      cleanup();
+      reject(new Error(VIDEO_ERROR));
+    };
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('The video stopped responding while it was being read. Try again, or convert it to an H.264 MP4.'));
+    }, timeoutMs);
+    el.addEventListener(event, ok);
+    el.addEventListener('error', bad);
+  });
+}
+
+/** Steps through the video at `fps` and runs pose and ball detection on every step. Pass a signal to cancel. */
+export async function extractPose(
+  video: HTMLVideoElement,
+  fps: number,
+  onProgress: (fraction: number) => void,
+  trackBall: boolean,
+  signal?: AbortSignal,
+): Promise<Pose> {
+  if (!video.videoWidth) await waitFor(video, 'loadedmetadata', 15000);
+  const files = await FilesetResolver.forVisionTasks('/wasm');
+  const landmarker = await createPoseLandmarker(files);
+  const detector = trackBall ? await createBallDetector(files) : null;
+  const count = Math.floor(video.duration * fps);
+  const frames: (Pt[] | null)[] = [];
+  const balls: (Pt | null)[] = [];
+  const world: (Pt3[] | null)[] = [];
+  try {
+    for (let i = 0; i < count; i++) {
+      if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError');
+      const seeked = waitFor(video, 'seeked', 5000);
+      video.currentTime = (i + 0.5) / fps; // middle of frame i, so a seek always lands on the same frame
+      await seeked;
+      const ts = Math.round((i * 1000) / fps);
+      const result = landmarker.detectForVideo(video, ts);
+      const lm = result.landmarks[0];
+      frames.push(lm ? lm.map((p) => ({ x: p.x, y: p.y })) : null);
+      const w = result.worldLandmarks[0];
+      world.push(w ? w.map((p) => ({ x: p.x, y: p.y, z: p.z })) : null);
+
+      // detections come back in pixels, best score first
+      const box = detector?.detectForVideo(video, ts).detections[0]?.boundingBox;
+      balls.push(box ? { x: (box.originX + box.width / 2) / video.videoWidth, y: (box.originY + box.height / 2) / video.videoHeight } : null);
+      if (i % 5 === 0) onProgress(i / count);
+    }
+  } finally {
+    landmarker.close();
+    detector?.close();
+  }
+  onProgress(1);
+  return { fps, width: video.videoWidth, height: video.videoHeight, frames, balls, world };
+}
