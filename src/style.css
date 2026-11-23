@@ -473,3 +473,5 @@ button, a, input, select, label { touch-action: manipulation; } /* no double-tap
   td:first-child, td .btn { white-space: nowrap; }
   td .btn { padding: 6px 12px; min-height: 40px; }
 }
+.rec .watch { margin-left: 4px; font-size: 12px; font-weight: 600; color: var(--fg); text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; }
+@media (pointer: coarse) { .rec .watch { display: inline-block; padding: 6px 4px; } }

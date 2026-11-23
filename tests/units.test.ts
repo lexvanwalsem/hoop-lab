@@ -147,3 +147,15 @@ test('feet outside the frame is not whole body', () => {
   for (const i of [27, 28, 31, 32]) lm[i].y = 1.05;
   assert.equal(checkFraming(lm, 9 / 16, 120).checks.find((c) => c.id === 'frame')!.ok, false);
 });
+
+// ---- example links for drills ----
+
+import { drillName, exampleUrl } from '../src/coach.ts';
+
+test('a drill links to a search for its exercise name only', () => {
+  assert.equal(drillName('Pogo hops: 3 x 15, stiff ankles'), 'Pogo hops');
+  assert.equal(drillName('Depth jump from 20-30 cm: 3 x 4'), 'Depth jump from 20-30 cm');
+  const url = exampleUrl('Back squat or trap-bar deadlift: 4 x 4 heavy');
+  assert.ok(url.startsWith('https://www.youtube.com/results?search_query='));
+  assert.ok(!url.includes('heavy'));
+});

@@ -6,7 +6,7 @@ import type { Chart } from 'chart.js';
 import './style.css';
 import { shortDate, trendChart, volumeChart, type Series } from './charts';
 import { analyzeJumps, analyzeShots, type Kind, type Metric, type Result } from './analysis';
-import { recommend, type Rec } from './coach';
+import { drillName, exampleUrl, recommend, type Rec } from './coach';
 import { filmingGuide, jumpGuide, type Section } from './guide';
 import { extractPose, type Pose } from './pose';
 import { demoData } from './demo';
@@ -258,7 +258,7 @@ function delta(now: number, before: number | undefined, unit: string): string {
 
 function recCards(recs: Rec[], meta: (i: number) => string = () => ''): string {
   return `<div class="recs">${recs
-    .map((r, i) => `<div class="rec rise">${meta(i) ? `<div class="meta">${meta(i)}</div>` : ''}<h3>${esc(r.title)}</h3><p class="muted small">${esc(r.why)}</p><ul>${r.drills.map((d) => `<li>${esc(d)}</li>`).join('')}</ul></div>`)
+    .map((r, i) => `<div class="rec rise">${meta(i) ? `<div class="meta">${meta(i)}</div>` : ''}<h3>${esc(r.title)}</h3><p class="muted small">${esc(r.why)}</p><ul>${r.drills.map((d) => `<li>${esc(d)} <a class="watch" href="${exampleUrl(d)}" target="_blank" rel="noopener noreferrer" aria-label="Watch examples of ${esc(drillName(d))} (opens YouTube)">Watch</a></li>`).join('')}</ul></div>`)
     .join('')}</div>`;
 }
 

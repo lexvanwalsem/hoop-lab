@@ -40,7 +40,8 @@ finds your joints in every frame, finds each jump or shot in the clip and measur
   and angle, set point to release time, wrist flick, follow-through, how the release lines up with the top of your jump,
   and forward drift. The ball is tracked, so the launch angle is measured and not guessed.
 - **Replay:** the tracked skeleton of every jump or shot, with a timeline you can step through by phase.
-- **Advice:** every metric that is flagged comes with a plain explanation and concrete drills, with sets and reps.
+- **Advice:** every metric that is flagged comes with a plain explanation and concrete drills, with sets and reps. Each
+  drill has a Watch link that opens a video search for how to do it, only when you click it.
 - **Progress:** a dashboard with your jump trend, shot score, personal bests, the habits that keep coming back, and an
   exercise log.
 - **Framing check:** a live camera view that tracks your body and tells you what to fix before you film: whole body in
@@ -114,17 +115,22 @@ and import it somewhere else.
 
 ## On your phone
 
-Hoop Lab is a progressive web app (PWA): host the built app once and install it from the browser. The tracking runs
-on the phone itself, there is no server doing the work.
+Hoop Lab is a progressive web app (PWA): you open it once from a web address and install it on the home screen. The
+tracking runs on the phone itself, there is no server doing the work.
 
-1. `npm run build`, then upload the `dist` folder to any static host with HTTPS (for example Netlify). The models are
-   about 50 MB, so choose a host that allows files that large.
-2. Open the address on the phone. iPhone: Safari, Share, Add to Home Screen. Android: Chrome, Install app.
-3. After the first start the app and its models are cached, so it also works offline.
+**Hosting.** A GitHub Pages workflow (`.github/workflows/pages.yml`) builds the app, including the tracking models, and
+publishes it on every push to `main`. GitHub Pages needs a public repository, so the workflow does nothing while the
+repository is private. To turn it on after making the repository public: Settings, Pages, Source: GitHub Actions. The
+address is then `https://<your-user>.github.io/hoop-lab/`. Any other static host with HTTPS works as well: upload the
+`dist` folder after `npm run build`.
 
-HTTPS is required for installing and for camera access. A plain `http://` address on your wifi still works for
-analyzing videos, just not for installing. Results live in the browser or app you used: use **Your data** on the
-dashboard to move a backup between devices. Speed depends on the phone, and tracking is slower on older ones.
+**Installing.**
+1. Open the address on the phone. iPhone: Safari, Share, Add to Home Screen. Android: Chrome, Install app.
+2. After the first start the app and its models are cached, so it also works offline.
+
+HTTPS is required for installing and for the camera in the framing check. A plain `http://` address on your wifi still
+works for analyzing videos, just not for installing. Results live in the browser or app you used: use **Your data** on
+the dashboard to move a backup between devices. Speed depends on the phone, and tracking is slower on older ones.
 
 ## Filming in short
 
@@ -155,6 +161,7 @@ The in-app **Filming** page has the full version with diagrams.
 ## Built to be trusted
 
 - **Videos never leave your device.** There is no server, no upload and no account.
+- **Only links leave the app.** The Watch links open a YouTube search, and only when you click them.
 - **Models run locally.** The tracking models and the WebAssembly runtime are served from the app (`public/`), not a CDN.
 - **Data stays in your browser** (`localStorage`). You can export and import a backup file, and delete everything.
 - **Honest numbers.** Targets in the app are starting points, the accuracy is stated below, and demo data is always
@@ -184,6 +191,8 @@ The in-app **Filming** page has the full version with diagrams.
 - Draw the tracked skeleton on top of your original video
 - A free-throw and layup mode
 - A lighter tracking model as an option for older phones
+- Animated demos of the drills, drawn with the same skeleton as the jump guide, instead of a video search
+- Saving results and skeleton tracks in IndexedDB, so the replay of an old session works after a restart
 
 ## Development
 

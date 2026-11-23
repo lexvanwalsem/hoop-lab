@@ -64,3 +64,13 @@ function rule(m: Metric): Rec | null {
       return null;
   }
 }
+
+/** The exercise name of a drill line: the part before the sets and reps ("Pogo hops: 3 x 15" gives "Pogo hops"). */
+export function drillName(drill: string): string {
+  return drill.split(/[:,(]/)[0].trim().slice(0, 70);
+}
+
+/** A YouTube search for how to do the drill. Opened only when the user clicks it, so nothing is requested otherwise. */
+export function exampleUrl(drill: string): string {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${drillName(drill)} how to do`)}`;
+}
