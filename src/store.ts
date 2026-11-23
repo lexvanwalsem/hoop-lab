@@ -1,4 +1,5 @@
 import type { Kind, Metric } from './analysis';
+import { sanitizeSnaps, type Snap } from './snapshots.ts';
 
 export interface Session {
   id: string;
@@ -7,6 +8,7 @@ export interface Session {
   headline: number;
   metrics: Metric[];
   tips: string[];
+  snaps?: Snap[]; // key moments as drawings
   demo?: boolean; // sample data, never mixed up with a real result
 }
 
@@ -51,7 +53,7 @@ export function sanitize(raw: unknown): Data {
     for (const s of r.sessions as Record<string, unknown>[]) {
       if (s && isStr(s.id) && isStr(s.date) && KINDS.includes(s.kind as Kind) && isNum(s.headline) && Array.isArray(s.metrics)) {
         const metrics = (s.metrics as Record<string, unknown>[]).filter((m) => m && isStr(m.label) && isStr(m.value) && isStr(m.status)) as unknown as Metric[];
-        out.sessions.push({ id: s.id, date: s.date, kind: s.kind as Kind, headline: s.headline, metrics, tips: Array.isArray(s.tips) ? (s.tips as unknown[]).filter(isStr) : [], ...(s.demo ? { demo: true } : {}) });
+        out.sessions.push({ id: s.id, date: s.date, kind: s.kind as Kind, headline: s.headline, metrics, tips: Array.isArray(s.tips) ? (s.tips as unknown[]).filter(isStr) : [], ...(sanitizeSnaps(s.snaps).length ? { snaps: sanitizeSnaps(s.snaps) } : {}), ...(s.demo ? { demo: true } : {}) });
       }
     }
   }

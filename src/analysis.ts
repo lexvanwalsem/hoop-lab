@@ -57,7 +57,7 @@ function series(pose: Pose, f: (p: (k: number) => P) => number): number[] {
 }
 
 /** Angle at b in degrees, for points with any number of dimensions. */
-function angle(a: number[], b: number[], c: number[]): number {
+export function angle(a: number[], b: number[], c: number[]): number {
   const v1 = a.map((v, i) => v - b[i]);
   const v2 = c.map((v, i) => v - b[i]);
   const dot = v1.reduce((s, v, i) => s + v * v2[i], 0);

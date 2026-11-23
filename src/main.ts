@@ -13,6 +13,8 @@ import { demoData } from './demo';
 import { exportBackup, importBackup, load, newId, save, sortByDate, today, type Data, type Session, backupDue, lastBackup, markBackup } from './store';
 import { probeVideo, type VideoInfo } from './video';
 import { openFramingCheck } from './camera';
+import { snapSvg } from './snapview';
+import { buildSnapshots, type Snap } from './snapshots';
 import { framingPanel, icon, jumpFigure, phaseNames, runFigures, sparkline } from './art';
 import { gauge } from './gauge';
 
@@ -219,7 +221,7 @@ const phoneQuery = window.matchMedia('(max-width: 700px)');
 /** On a phone, lists of cards become swipeable rows with position dots, and long tables show only the latest rows. */
 function phoneLayout(root: HTMLElement): void {
   if (!phoneQuery.matches) return;
-  root.querySelectorAll<HTMLElement>('.stats, .recs, .cards, .week, .picker, .fpanel').forEach((row) => {
+  root.querySelectorAll<HTMLElement>('.stats, .recs, .cards, .week, .picker, .fpanel, .snaps').forEach((row) => {
     const n = row.children.length;
     if (n < 2 || row.nextElementSibling?.classList.contains('dots')) return;
     const dots = document.createElement('div');
@@ -315,6 +317,15 @@ function delta(now: number, before: number | undefined, unit: string): string {
   return `<span class="delta ${cls}">${d > 0 ? '+' : ''}${d.toFixed(0)} ${unit}</span> vs previous`;
 }
 
+/** The key moments as small drawings with the joint angles. Flagged angles are coloured, so the problem is easy to spot. */
+function snapSection(snaps: Snap[]): string {
+  if (!snaps.length) return '';
+  const flagged = (s: Snap): boolean => s.angles.some((a) => a.status === 'bad' || a.status === 'warn');
+  const chip = (a: Snap['angles'][number]): string => `<span class="chip ${a.status === 'info' ? '' : a.status}">${esc(a.label)} ${a.deg}&deg;${a.status === 'bad' || a.status === 'warn' ? (a.target ? ` &middot; target ${esc(a.target)}` : '') : ''}</span>`;
+  return `<section class="section"><div class="section-head rise"><h2>${snaps.some(flagged) ? 'Where it went wrong' : 'Key moments'}</h2></div>
+    <div class="snaps">${snaps.map((s) => `<figure class="snap rise${s.angles.some((a) => a.status === 'bad') ? ' flag' : flagged(s) ? ' flag warn' : ''}">${snapSvg(s)}<figcaption><b>${esc(s.name)}</b><span class="chips">${s.angles.map(chip).join('')}</span></figcaption></figure>`).join('')}</div></section>`;
+}
+
 function recCards(recs: Rec[], meta: (i: number) => string = () => ''): string {
   return `<div class="recs">${recs
     .map((r, i) => `<div class="rec rise">${meta(i) ? `<div class="meta">${meta(i)}</div>` : ''}<h3>${esc(r.title)}</h3><p class="muted small">${esc(r.why)}</p><ul>${r.drills.map((d) => `<li>${esc(d)} <a class="watch" href="${exampleUrl(d)}" target="_blank" rel="noopener noreferrer" aria-label="Watch examples of ${esc(drillName(d))} (opens YouTube)">Watch</a></li>`).join('')}</ul></div>`)
@@ -375,6 +386,7 @@ function openSheet(s: Session): void {
     </div>
     <div class="sheet-body">
       <div class="metrics rise">${s.metrics.map(tile).join('')}</div>
+      ${snapSection(s.snaps ?? [])}
       <div class="section-head" style="margin-top:32px"><h2>How to improve</h2></div>
       ${recs.length ? recCards(recs) : '<p class="muted">Nothing flagged in this session.</p>'}
     </div>
@@ -763,7 +775,7 @@ function analyze(view: HTMLElement): void {
         jobChanged();
       }, kind === 'shot', job.controller.signal);
       const results = kind === 'shot' ? analyzeShots(pose, height) : analyzeJumps(pose, height, kind, weight);
-      for (const r of results) data.sessions.push({ id: newId(), date: today(), kind, headline: r.headline, metrics: r.metrics, tips: r.tips });
+      for (const r of results) data.sessions.push({ id: newId(), date: today(), kind, headline: r.headline, metrics: r.metrics, tips: r.tips, snaps: buildSnapshots(pose, r) });
       const saved = save(data);
       job.pose = pose;
       job.video = video;
@@ -839,6 +851,7 @@ function renderResult(out: HTMLElement, video: HTMLVideoElement, pose: Pose, r: 
         <div class="pills">${r.marks.map((m, i) => `<button class="pill" data-mark="${i}">${m.name}</button>`).join('')}</div></div>
       <div class="tile rise"><div class="kicker" style="margin-bottom:14px">Metrics</div><div class="metrics">${r.metrics.map(tile).join('')}</div></div>
     </div>
+    ${snapSection(buildSnapshots(pose, r))}
     <section class="section"><div class="section-head rise"><h2>How to improve</h2></div>
       ${recs.length ? recCards(recs) : '<p class="muted">Nothing flagged. Keep it up and test again in 1-2 weeks.</p>'}
       ${r.tips.length ? `<p class="muted small" style="margin-top:16px"><b>Notes:</b> ${r.tips.map(esc).join(' ')}</p>` : ''}

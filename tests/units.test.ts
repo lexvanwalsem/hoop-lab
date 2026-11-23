@@ -173,3 +173,51 @@ test('the backup reminder ignores demo data and waits a month', () => {
   assert.equal(backupDue(real, '2026-05-20T00:00:00Z', now), null);
   assert.equal(backupDue(real, '2026-04-01T00:00:00Z', now), 'old');
 });
+
+// ---- key moment snapshots ----
+
+import { buildSnapshots, sanitizeSnaps, KEEP } from '../src/snapshots.ts';
+
+/** One frame of a standing person facing sideways, with an elbow bent to `elbowDeg`. */
+function standingFrame(elbowDeg: number): { x: number; y: number }[] {
+  const lm = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5 }));
+  const set = (i: number, x: number, y: number): void => void (lm[i] = { x, y });
+  set(0, 0.5, 0.2);
+  set(12, 0.5, 0.3); set(11, 0.5, 0.3);
+  set(24, 0.5, 0.55); set(23, 0.5, 0.55);
+  set(26, 0.5, 0.72); set(25, 0.5, 0.72);
+  set(28, 0.5, 0.9); set(27, 0.5, 0.9);
+  set(32, 0.55, 0.9); set(31, 0.55, 0.9);
+  // right arm: the upper arm goes down from the shoulder, the forearm bends up by (180 - elbow)
+  set(14, 0.5, 0.42);
+  const rad = ((180 - elbowDeg) * Math.PI) / 180;
+  set(16, 0.5 + 0.12 * Math.sin(rad), 0.42 - 0.12 * Math.cos(rad) * -1 * -1 + 0.24 - 0.24);
+  set(13, 0.5, 0.42); set(15, 0.5, 0.42);
+  return lm;
+}
+
+test('snapshots keep the key moments with their angles and verdicts', () => {
+  const pose = { fps: 60, width: 1000, height: 1000, frames: [standingFrame(90), standingFrame(150)], balls: [null, null], world: [] as never[] };
+  const result = {
+    kind: 'shot' as const, headline: 70, tips: [], detectionRate: 1,
+    metrics: [
+      { label: 'Elbow at set point', value: '90 deg', status: 'good' as const, target: '70-100 deg' },
+      { label: 'Elbow at release', value: '132 deg', status: 'bad' as const, target: '150+ deg' },
+    ],
+    marks: [{ name: 'Set point', frame: 0 }, { name: 'Release', frame: 1 }, { name: 'Apex', frame: 1 }],
+  };
+  const snaps = buildSnapshots(pose, result);
+  assert.deepEqual(snaps.map((s) => s.name), ['Set point', 'Release']); // the apex of a shot is not drawn
+  const release = snaps[1];
+  assert.equal(release.pts.length, KEEP.length);
+  assert.equal(release.angles[0].deg, 132); // the metric's own value, so the picture and the number agree
+  assert.equal(release.angles[0].status, 'bad');
+  assert.equal(release.angles[0].target, '150+ deg');
+  assert.equal(sanitizeSnaps(snaps).length, 2);
+});
+
+test('broken snapshots are dropped when loading', () => {
+  const good = { name: 'Release', ar: 1, pts: Array.from({ length: KEEP.length }, () => [0.5, 0.5]), angles: [] };
+  assert.equal(sanitizeSnaps([good, { ...good, pts: [[0, 0]] }, { ...good, name: 5 }, null]).length, 1);
+  assert.deepEqual(sanitizeSnaps('nope'), []);
+});

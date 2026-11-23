@@ -600,3 +600,26 @@ details.guide > summary::-webkit-details-marker { display: none; }
   .sheet { padding-top: max(16px, env(safe-area-inset-top)); }
   .camcheck { padding-top: env(safe-area-inset-top, 0px); }
 }
+
+/* ---------- key moments: the body with its joint angles ---------- */
+.snaps { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 12px; }
+.snap { margin: 0; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: var(--radius-card); background: var(--surface); }
+.snap.flag { box-shadow: 0 0 0 2px var(--bad) inset; }
+.snap.flag.warn { box-shadow: 0 0 0 2px var(--warn) inset; }
+.snap figcaption { display: flex; flex-direction: column; gap: 8px; }
+.snap figcaption b { font-weight: 600; }
+.snap-svg { width: 100%; height: auto; aspect-ratio: 4 / 5; border-radius: 12px; background: var(--bg); overflow: visible; }
+.snap-svg .bones { fill: none; stroke: var(--fg); stroke-width: calc(var(--u) * 2.4px); stroke-linecap: round; stroke-linejoin: round; opacity: 0.85; }
+.snap-svg .headdot { fill: var(--fg); opacity: 0.85; }
+.snap-svg .joint { fill: var(--bg); stroke: var(--fg); stroke-width: calc(var(--u) * 0.9px); }
+.snap-svg .ang { --s: var(--meta); }
+.snap-svg .ang.good { --s: var(--good); } .snap-svg .ang.warn { --s: var(--warn); } .snap-svg .ang.bad { --s: var(--bad); } .snap-svg .ang.info { --s: var(--fg); }
+.snap-svg .wedge { fill: var(--s); fill-opacity: 0.28; stroke: var(--s); stroke-width: calc(var(--u) * 1.2px); stroke-linejoin: round; }
+.snap-svg .limb { fill: none; stroke: var(--s); stroke-width: calc(var(--u) * 3.4px); stroke-linecap: round; stroke-linejoin: round; }
+.snap-svg .deg { fill: var(--fg); font-family: var(--body); font-weight: 700; font-size: calc(var(--u) * 7.5px); paint-order: stroke; stroke: var(--bg); stroke-width: calc(var(--u) * 2px); stroke-linejoin: round; }
+@media (max-width: 700px) {
+  .snaps { --bleed: var(--pad); display: flex; gap: 12px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; margin-left: calc(var(--bleed) * -1); margin-right: calc(var(--bleed) * -1); padding: 0 var(--bleed) 4px; scroll-padding: 0 var(--bleed); }
+  .snaps::-webkit-scrollbar { display: none; }
+  .snaps > * { flex: 0 0 78%; min-width: 0; scroll-snap-align: start; }
+  .sheet-body .snaps { --bleed: 28px; }
+}

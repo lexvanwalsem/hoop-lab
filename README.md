@@ -43,6 +43,10 @@ finds your joints in every frame, finds each jump or shot in the clip and measur
 - **Jump shot:** a form score and the numbers behind it: knee bend, elbow at set point and at release, release height
   and angle, set point to release time, wrist flick, follow-through, how the release lines up with the top of your jump,
   and forward drift. The ball is tracked, so the launch angle is measured and not guessed.
+- **Where it went wrong:** the key moments of every jump or shot (dip, takeoff, landing; set point, release) are drawn as the
+  tracked body with the joint angles on it. A wedge shows each angle, flagged angles are coloured and show their target,
+  and the card is outlined when it needs work. They are saved with the session as small drawings (about 2 KB), not as
+  video or photos, so they contain no faces and can be opened again later.
 - **Replay:** the tracked skeleton of every jump or shot, with a timeline you can step through by phase.
 - **Advice:** every metric that is flagged comes with a plain explanation and concrete drills, with sets and reps. Each
   drill has a Watch link that opens a video search for how to do it, only when you click it.
@@ -200,7 +204,7 @@ The in-app **Filming** page has the full version with diagrams.
 - A free-throw and layup mode
 - A lighter tracking model as an option for older phones
 - Animated demos of the drills, drawn with the same skeleton as the jump guide, instead of a video search
-- Saving results and skeleton tracks in IndexedDB, so the replay of an old session works after a restart
+- Saving the full skeleton track in IndexedDB, so the replay of an old session works after a restart
 
 ## Development
 
@@ -212,6 +216,7 @@ npm run build    # type check and production build into dist/
 | File | What it does |
 |---|---|
 | `src/pose.ts` | Steps through a video and runs pose and ball detection |
+| `src/snapshots.ts`, `src/snapview.ts` | Key moments: the body points and joint angles of a frame, and how they are drawn |
 | `src/camera.ts`, `src/framing.ts` | The live framing check and its pure rules |
 | `src/video.ts` | Reads the frame rate from the MP4 or MOV header, probes the video |
 | `src/analysis.ts` | Calibration, jump and shot detection, metrics |
