@@ -537,3 +537,14 @@ details.guide > summary::-webkit-details-marker { display: none; }
   .tab { min-height: 56px; }
   .tabs { min-height: var(--tabbar); }
 }
+
+/* phone header: no announcement bar, the logo in the middle, the running-analysis pill on the right */
+@media (max-width: 700px) {
+  .announce { display: none; }
+  header .wrap { position: relative; justify-content: center; height: 56px; }
+  .brand { font-size: 28px; }
+  .head-right { position: absolute; right: var(--pad); top: 50%; transform: translateY(-50%); }
+  .jobpill { padding: 4px 12px; font-size: 13px; min-height: 0; }
+  .jobpill .pl { display: none; }
+  .jobpill::before { margin-right: 6px; }
+}

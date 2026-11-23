@@ -108,7 +108,8 @@ function jobChanged(): void {
   const pill = document.getElementById('jobpill');
   if (pill) {
     pill.hidden = !job.running || tab === 'analyze';
-    pill.textContent = `Analyzing ${(job.progress * 100).toFixed(0)}%`;
+    pill.innerHTML = `<span class="pl">Analyzing </span>${(job.progress * 100).toFixed(0)}%`;
+    pill.setAttribute('aria-label', `Analyzing, ${(job.progress * 100).toFixed(0)} percent. Open the analysis.`);
   }
   paintJob();
 }
