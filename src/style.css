@@ -548,3 +548,41 @@ details.guide > summary::-webkit-details-marker { display: none; }
   .jobpill .pl { display: none; }
   .jobpill::before { margin-right: 6px; }
 }
+
+/* ---------- phone: open and flat instead of boxes and bars ---------- */
+@media (max-width: 700px) {
+  /* sections sit directly on the page; only the things you tap or swipe keep a surface */
+  .tile { padding: 0; border-radius: 0; background: transparent; }
+  .tile input { background: var(--surface); }
+  .cardi, .day, .metric, .fcell { background: var(--surface); }
+  .fcell { padding: 16px; }
+  .tile.busy { padding: 0; }
+  .demo-bar { padding: 0; border: 0; background: transparent; }
+
+  /* guide sections: plain rows with hairlines, like a settings list */
+  .guide-grid { gap: 0; }
+  details.guide { padding: 0; border-radius: 0; background: transparent; border-top: 1px solid var(--border-soft); }
+  .guide-grid > details.guide:last-child { border-bottom: 1px solid var(--border-soft); }
+  details.guide > summary { min-height: 60px; }
+  details.guide > summary h2 { font-size: 22px; }
+  details.guide[open] { padding-bottom: 20px; }
+  details.guide:not([open]) { padding-bottom: 0; }
+  .guide .intro { margin-top: 0; }
+  .tile.lead { padding-bottom: 8px; }
+
+  /* settings fold: a plain row */
+  .fold { margin-top: 24px; border-top: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft); }
+  .fold > summary { padding: 0; border-radius: 0; background: transparent; font-size: 22px; }
+  .fold[open] > summary { margin-bottom: 0; }
+
+  /* the bottom bar: translucent, no hard edge */
+  .tabs { background: color-mix(in srgb, var(--bg) 82%, transparent); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); box-shadow: 0 -1px 0 0 var(--border-soft); }
+  .tab { color: var(--muted); }
+  .tab.active { color: var(--fg); }
+}
+@media (max-width: 700px) { .tile .cards, .tile .week, .tile .fpanel { --bleed: var(--pad); } }
+@media (max-width: 700px) {
+  .tile.stack:has(> label.field) { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .tile.stack:has(> label.field) > :not(label.field) { grid-column: 1 / -1; }
+  .tile.busy > .stack { width: 100%; }
+}
