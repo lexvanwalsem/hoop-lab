@@ -11,6 +11,10 @@
 </p>
 
 <p align="center">
+  <b><a href="https://lexvanwalsem.github.io/hoop-lab/">Open the app</a></b> (add it to your home screen on iPhone or Android)
+</p>
+
+<p align="center">
   <a href="https://github.com/lexvanwalsem/hoop-lab/actions/workflows/test.yml"><img alt="Tests" src="https://github.com/lexvanwalsem/hoop-lab/actions/workflows/test.yml/badge.svg"></a>
   <img alt="Runs in the browser" src="https://img.shields.io/badge/runs-in%20your%20browser-111111">
   <img alt="Local only" src="https://img.shields.io/badge/data-stays%20on%20your%20device-111111">
@@ -121,7 +125,7 @@ tracking runs on the phone itself, there is no server doing the work.
 **Hosting.** A GitHub Pages workflow (`.github/workflows/pages.yml`) builds the app, including the tracking models, and
 publishes it on every push to `main`. GitHub Pages needs a public repository, so the workflow does nothing while the
 repository is private. To turn it on after making the repository public: Settings, Pages, Source: GitHub Actions. The
-address is then `https://<your-user>.github.io/hoop-lab/`. Any other static host with HTTPS works as well: upload the
+address is `https://lexvanwalsem.github.io/hoop-lab/`. Any other static host with HTTPS works as well: upload the
 `dist` folder after `npm run build`.
 
 **Installing.**
