@@ -136,7 +136,8 @@ address is `https://lexvanwalsem.github.io/hoop-lab/`. Any other static host wit
 
 HTTPS is required for installing and for the camera in the framing check. A plain `http://` address on your wifi still
 works for analyzing videos, just not for installing. Results live in the browser or app you used: use **Your data** on
-the dashboard to move a backup between devices. Speed depends on the phone, and tracking is slower on older ones.
+the dashboard to move a backup between devices: on a phone the export opens the share sheet, so you can save the file
+to Files, iCloud or Drive, or mail it to yourself. Import picks the file again from there. Speed depends on the phone, and tracking is slower on older ones.
 
 ## Filming in short
 

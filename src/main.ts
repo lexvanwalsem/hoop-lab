@@ -111,6 +111,22 @@ window.addEventListener('beforeunload', (e) => {
   if (job.running) e.preventDefault(); // leaving now would throw the tracking away
 });
 
+/** On a phone this opens the share sheet (Files, iCloud, Drive, mail), elsewhere it downloads. Resolves false when the user cancelled. */
+async function saveFile(name: string, text: string, type: string): Promise<boolean> {
+  const file = new File([text], name, { type });
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: name });
+      return true;
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return false; // the user closed the share sheet
+      // any other failure: fall through to a normal download
+    }
+  }
+  downloadText(name, text, type);
+  return true;
+}
+
 function downloadText(name: string, text: string, type: string): void {
   const url = URL.createObjectURL(new Blob([text], { type }));
   const a = document.createElement('a');
@@ -511,15 +527,15 @@ function dashboard(view: HTMLElement): void {
     save(data);
     void show('dashboard');
   });
-  const exportNow = (): void => {
+  const exportNow = async (): Promise<void> => {
     if (!data.sessions.length && !data.exercises.length) return note('Nothing to export yet.');
-    downloadText(`hoop-lab-backup-${today()}.json`, exportBackup(data), 'application/json');
+    if (!(await saveFile(`hoop-lab-backup-${today()}.json`, exportBackup(data), 'application/json'))) return;
     markBackup();
-    note('Backup downloaded.', true);
+    note('Backup saved. Keep the file somewhere safe, for example in Files or your cloud drive.', true);
     view.querySelector('#storeNote')!.textContent = `Last backup: ${shortDate(today())}.`;
   };
-  view.querySelector<HTMLButtonElement>('#exportData')!.onclick = exportNow;
-  view.querySelector<HTMLButtonElement>('#remindExport')?.addEventListener('click', exportNow);
+  view.querySelector<HTMLButtonElement>('#exportData')!.onclick = () => void exportNow();
+  view.querySelector<HTMLButtonElement>('#remindExport')?.addEventListener('click', () => void exportNow());
   // tells whether the browser promised not to clear this data when storage runs low
   void navigator.storage?.persisted?.().then((p) => {
     const el = view.querySelector('#storeNote');
