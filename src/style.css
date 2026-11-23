@@ -515,3 +515,17 @@ details.guide > summary::-webkit-details-marker { display: none; }
   .guide-band p { max-width: none; }
   .figure { height: 210px; top: 24px; bottom: auto; right: var(--pad); }
 }
+
+/* dashboard: goal and backup fold away on a phone, always open on a larger screen */
+.fold > summary { display: none; list-style: none; }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold .rise { opacity: 1; transform: none; }
+@media (max-width: 700px) {
+  .fold { margin-top: 32px; }
+  .fold > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding: 0 20px; border-radius: var(--radius-card); background: var(--surface); font: 700 24px/1 var(--display); text-transform: uppercase; cursor: pointer; }
+  .fold > summary .chip { font: 500 13px/1.2 var(--body); text-transform: none; }
+  .fold > summary::after { content: ''; flex: none; width: 10px; height: 10px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform var(--t-base) var(--ease); }
+  .fold[open] > summary::after { transform: rotate(-135deg); }
+  .fold[open] > summary { margin-bottom: 8px; }
+  .fold .section { padding-top: 24px; }
+}

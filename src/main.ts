@@ -487,6 +487,7 @@ function dashboard(view: HTMLElement): void {
         ${data.sessions.length ? `<div class="sessions">${data.sessions.slice(-6).reverse().map((s) => `<button class="srow ${s.kind} rise" data-sid="${s.id}"><span class="big">${s.headline.toFixed(0)}<small>${s.kind === 'shot' ? '/100' : 'cm'}</small></span><span class="what"><b>${KIND_LABEL[s.kind]}</b><span>${shortDate(s.date)}</span></span><span class="chips">${statusChips(s.metrics)}</span><span class="go">&rsaquo;</span></button>`).join('')}</div>` : '<p class="muted">No sessions yet.</p>'}
       </section>
 
+      <details class="fold"${!phoneQuery.matches || due ? ' open' : ''}><summary>Settings and backup${due ? ' <span class="chip warn">Back up</span>' : ''}</summary>
       <section class="section"><div class="section-head rise"><h2>Jump goal</h2></div>
         <div class="tile row between rise"><p class="muted">Set a target for your standing jump. The Jump meter fills towards it.</p><div class="row"><div style="width:140px"><input id="goal" type="number" min="10" max="200" placeholder="Goal in cm" value="${goal || ''}" aria-label="Jump goal in centimetres"></div><button class="btn primary" id="setGoal">${goal ? 'Update goal' : 'Set goal'}</button></div></div>
       </section>
@@ -497,6 +498,7 @@ function dashboard(view: HTMLElement): void {
           <div class="row"><button class="btn" id="exportData">Export backup</button><button class="btn" id="importData">Import backup</button><button class="btn" id="wipeData">Delete all</button><input type="file" id="importFile" accept="application/json,.json" hidden></div></div>
         <p class="small error" id="dataNote" role="status" style="min-height:1.5em;margin-top:10px"></p>
       </section>
+      </details>
     </div>`;
 
   view.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => (b.onclick = () => navigate(b.dataset.go as Tab)));
