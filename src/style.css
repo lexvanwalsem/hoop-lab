@@ -586,3 +586,17 @@ details.guide > summary::-webkit-details-marker { display: none; }
   .tile.stack:has(> label.field) > :not(label.field) { grid-column: 1 / -1; }
   .tile.busy > .stack { width: 100%; }
 }
+
+/* phone: no header bar. The page starts with its dark band, the tabs sit at the bottom, like an app. */
+@media (max-width: 700px) {
+  header { position: static; background: transparent; box-shadow: none; }
+  header .wrap { height: 0; padding: 0; }
+  .brand { display: none; }
+  /* the running-analysis pill floats at the top right */
+  .head-right { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 12px); right: var(--pad); transform: none; z-index: 25; }
+  .jobpill { background: #ffffff; border-color: #ffffff; color: #111111; }
+  /* the dark band runs under the status bar of an installed app */
+  .band .wrap { padding-top: calc(36px + env(safe-area-inset-top, 0px)); }
+  .sheet { padding-top: max(16px, env(safe-area-inset-top)); }
+  .camcheck { padding-top: env(safe-area-inset-top, 0px); }
+}
