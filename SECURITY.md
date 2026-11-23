@@ -12,4 +12,6 @@ Include what you found, how to reproduce it and what the impact could be.
 - Videos are decoded and analyzed in your browser. They are never uploaded.
 - The tracking models and the WebAssembly runtime are served from the app itself (`public/`), not from a CDN.
 - Results are stored in your browser's `localStorage`. There is no account, no server and no analytics.
+- If you turn on "Keep a photo of each key moment", small photos of you are stored in your browser's IndexedDB. They
+  stay on the device and are not part of backups. Deleting a session or all data removes them.
 - A backup file contains your sessions, exercise log, height and weight. Handle it as personal data.

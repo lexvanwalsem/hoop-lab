@@ -13,6 +13,7 @@ import { demoData } from './demo';
 import { exportBackup, importBackup, load, newId, save, sortByDate, today, type Data, type Session, backupDue, lastBackup, markBackup } from './store';
 import { probeVideo, type VideoInfo } from './video';
 import { openFramingCheck } from './camera';
+import { clearPhotos, deletePhotos, getPhotoUrl, keepPhotos, savePhotos, setKeepPhotos } from './photos';
 import { snapSvg } from './snapview';
 import { buildSnapshots, type Snap } from './snapshots';
 import { framingPanel, icon, jumpFigure, phaseNames, runFigures, sparkline } from './art';
@@ -101,8 +102,9 @@ interface Job {
   video: HTMLVideoElement | null;
   pose: Pose | null;
   results: Result[] | null;
+  ids: string[] | null; // the saved session of each result, to find its photos
 }
-const job: Job = { running: false, progress: 0, status: '', failed: false, controller: null, video: null, pose: null, results: null };
+const job: Job = { running: false, progress: 0, status: '', failed: false, controller: null, video: null, pose: null, results: null, ids: null };
 let paintJob: () => void = () => {}; // set by the Analyze page while it is on screen
 
 /** Updates everything that shows the job: the Analyze page and the pill in the header. */
@@ -317,13 +319,33 @@ function delta(now: number, before: number | undefined, unit: string): string {
   return `<span class="delta ${cls}">${d > 0 ? '+' : ''}${d.toFixed(0)} ${unit}</span> vs previous`;
 }
 
+/** Puts the saved photo under a drawing, when there is one. The drawing is cut to the same area, so the angles land on the body. */
+function hydratePhotos(root: HTMLElement): void {
+  root.querySelectorAll<HTMLElement>('.snap[data-sid]').forEach((fig) => {
+    void getPhotoUrl(fig.dataset.sid!, Number(fig.dataset.i)).then((url) => {
+      const svg = fig.querySelector('svg');
+      if (!url || !svg || svg.classList.contains('photo')) return;
+      const vb = svg.viewBox.baseVal;
+      const img = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+      img.setAttribute('href', url);
+      img.setAttribute('x', String(vb.x));
+      img.setAttribute('y', String(vb.y));
+      img.setAttribute('width', String(vb.width));
+      img.setAttribute('height', String(vb.height));
+      img.setAttribute('preserveAspectRatio', 'none');
+      svg.prepend(img);
+      svg.classList.add('photo');
+    });
+  });
+}
+
 /** The key moments as small drawings with the joint angles. Flagged angles are coloured, so the problem is easy to spot. */
-function snapSection(snaps: Snap[]): string {
+function snapSection(snaps: Snap[], sid?: string): string {
   if (!snaps.length) return '';
   const flagged = (s: Snap): boolean => s.angles.some((a) => a.status === 'bad' || a.status === 'warn');
   const chip = (a: Snap['angles'][number]): string => `<span class="chip ${a.status === 'info' ? '' : a.status}">${esc(a.label)} ${a.deg}&deg;${a.status === 'bad' || a.status === 'warn' ? (a.target ? ` &middot; target ${esc(a.target)}` : '') : ''}</span>`;
   return `<section class="section"><div class="section-head rise"><h2>${snaps.some(flagged) ? 'Where it went wrong' : 'Key moments'}</h2></div>
-    <div class="snaps">${snaps.map((s) => `<figure class="snap rise${s.angles.some((a) => a.status === 'bad') ? ' flag' : flagged(s) ? ' flag warn' : ''}">${snapSvg(s)}<figcaption><b>${esc(s.name)}</b><span class="chips">${s.angles.map(chip).join('')}</span></figcaption></figure>`).join('')}</div></section>`;
+    <div class="snaps">${snaps.map((s, i) => `<figure ${sid ? `data-sid="${esc(sid)}" data-i="${i}" ` : ''}class="snap rise${s.angles.some((a) => a.status === 'bad') ? ' flag' : flagged(s) ? ' flag warn' : ''}">${snapSvg(s)}<figcaption><b>${esc(s.name)}</b><span class="chips">${s.angles.map(chip).join('')}</span></figcaption></figure>`).join('')}</div></section>`;
 }
 
 function recCards(recs: Rec[], meta: (i: number) => string = () => ''): string {
@@ -386,7 +408,7 @@ function openSheet(s: Session): void {
     </div>
     <div class="sheet-body">
       <div class="metrics rise">${s.metrics.map(tile).join('')}</div>
-      ${snapSection(s.snaps ?? [])}
+      ${snapSection(s.snaps ?? [], s.id)}
       <div class="section-head" style="margin-top:32px"><h2>How to improve</h2></div>
       ${recs.length ? recCards(recs) : '<p class="muted">Nothing flagged in this session.</p>'}
     </div>
@@ -405,6 +427,7 @@ function openSheet(s: Session): void {
     if (target === el || target.closest('[data-close]')) return dismiss();
     if (target.closest('[data-delete]') && confirm('Delete this session? This cannot be undone.')) {
       data.sessions = data.sessions.filter((x) => x.id !== s.id);
+      void deletePhotos(s.id);
       save(data);
       dismiss();
       void show(tab, true);
@@ -415,6 +438,7 @@ function openSheet(s: Session): void {
   document.body.appendChild(el);
   app.inert = true; // the page behind cannot take focus while the sheet is open
   phoneLayout(el);
+  hydratePhotos(el);
   animateIn(el);
   setTimeout(() => el.classList.add('open'), 30); // after the first paint, so the transition runs
   el.querySelector<HTMLElement>('[data-close]')?.focus();
@@ -574,6 +598,7 @@ function dashboard(view: HTMLElement): void {
   view.querySelector<HTMLButtonElement>('#wipeData')!.onclick = () => {
     if (!confirm('Delete all sessions, exercises, your goal and your height and weight from this browser? Export a backup first if you want to keep them.')) return;
     data.sessions = [];
+    void clearPhotos();
     data.exercises = [];
     data.goalCm = 0;
     data.heightCm = 0;
@@ -645,6 +670,7 @@ function analyze(view: HTMLElement): void {
             <label class="field">Height (cm)<input id="height" type="number" min="120" max="240" value="${data.heightCm || ''}" placeholder="193"></label>
             <label class="field">Weight (kg)<input id="weight" type="number" min="30" max="200" value="${data.weightKg || ''}" placeholder="95"></label>
             <p class="muted small">They set the scale and the power estimate, so use your real values.</p>
+            <label class="check"><input type="checkbox" id="keepPhotos"${keepPhotos() ? ' checked' : ''}><span>Keep a photo of each key moment<small class="muted">Stored on this device only, about 25 KB each, not in backups. Shows your own body with the angles on it.</small></span></label>
             <button id="run" class="btn primary big push">Analyze</button>
           </div>
         </div></section>
@@ -655,6 +681,7 @@ function analyze(view: HTMLElement): void {
       <div id="out" class="scroll-target"></div>
     </div>`;
   const $ = <T extends HTMLElement>(id: string): T => view.querySelector<T>('#' + id)!;
+  $<HTMLInputElement>('keepPhotos').onchange = (e) => setKeepPhotos((e.target as HTMLInputElement).checked);
   const statusEl = $('status');
   let shown: Result[] | null = null;
 
@@ -671,7 +698,7 @@ function analyze(view: HTMLElement): void {
     $('cancel').hidden = !job.running;
     if (job.results && job.video && job.pose && job.results !== shown && !job.running) {
       shown = job.results;
-      renderResults($('out'), job.video, job.pose, job.results);
+      renderResults($('out'), job.video, job.pose, job.results, job.ids ?? []);
     }
   };
   paintJob = paint;
@@ -761,6 +788,7 @@ function analyze(view: HTMLElement): void {
     job.failed = false;
     job.progress = 0;
     job.results = null;
+    job.ids = null;
     job.pose = null;
     job.status = 'Starting...';
     job.controller = new AbortController();
@@ -775,8 +803,16 @@ function analyze(view: HTMLElement): void {
         jobChanged();
       }, kind === 'shot', job.controller.signal);
       const results = kind === 'shot' ? analyzeShots(pose, height) : analyzeJumps(pose, height, kind, weight);
-      for (const r of results) data.sessions.push({ id: newId(), date: today(), kind, headline: r.headline, metrics: r.metrics, tips: r.tips, snaps: buildSnapshots(pose, r) });
+      const snaps = results.map((r) => buildSnapshots(pose, r));
+      const ids = results.map(() => newId());
+      results.forEach((r, i) => data.sessions.push({ id: ids[i], date: today(), kind, headline: r.headline, metrics: r.metrics, tips: r.tips, snaps: snaps[i] }));
       const saved = save(data);
+      if (saved && keepPhotos()) {
+        job.status = 'Saving photos of the key moments...';
+        jobChanged();
+        await savePhotos(video, info.sampleFps, results.map((_, i) => ({ id: ids[i], snaps: snaps[i] })));
+      }
+      job.ids = ids;
       job.pose = pose;
       job.video = video;
       job.results = results;
@@ -799,8 +835,8 @@ function analyze(view: HTMLElement): void {
 const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28], [27, 31], [28, 32]];
 
 /** Shows one result, or a picker plus a summary when the clip held several jumps or shots. */
-function renderResults(out: HTMLElement, video: HTMLVideoElement, pose: Pose, results: Result[]): void {
-  if (results.length === 1) return renderResult(out, video, pose, results[0]);
+function renderResults(out: HTMLElement, video: HTMLVideoElement, pose: Pose, results: Result[], ids: string[]): void {
+  if (results.length === 1) return renderResult(out, video, pose, results[0], ids[0]);
   const kind = results[0].kind;
   const noun = kind === 'shot' ? 'Shot' : 'Jump';
   const unit = kind === 'shot' ? '' : ' cm';
@@ -814,7 +850,7 @@ function renderResults(out: HTMLElement, video: HTMLVideoElement, pose: Pose, re
   const pick = (i: number): void => {
     out.querySelectorAll<HTMLButtonElement>('[data-shot]').forEach((b, j) => b.classList.toggle('on', i === j));
     const holder = out.querySelector<HTMLElement>('#shot')!;
-    renderResult(holder, video, pose, results[i]);
+    renderResult(holder, video, pose, results[i], ids[i]);
     tallest = Math.max(tallest, holder.offsetHeight);
     holder.style.minHeight = `${tallest}px`;
   };
@@ -829,7 +865,7 @@ function markPos(r: Result, frame: number): number {
   return 10 + ((frame - lo) / Math.max(1, hi - lo)) * 80;
 }
 
-function renderResult(out: HTMLElement, video: HTMLVideoElement, pose: Pose, r: Result): void {
+function renderResult(out: HTMLElement, video: HTMLVideoElement, pose: Pose, r: Result, sid?: string): void {
   const isShot = r.kind === 'shot';
   const recs = recommend(r.metrics);
   const bestSoFar = Math.max(...data.sessions.filter((s) => s.kind === r.kind).map((s) => s.headline), r.headline);
@@ -851,7 +887,7 @@ function renderResult(out: HTMLElement, video: HTMLVideoElement, pose: Pose, r: 
         <div class="pills">${r.marks.map((m, i) => `<button class="pill" data-mark="${i}">${m.name}</button>`).join('')}</div></div>
       <div class="tile rise"><div class="kicker" style="margin-bottom:14px">Metrics</div><div class="metrics">${r.metrics.map(tile).join('')}</div></div>
     </div>
-    ${snapSection(buildSnapshots(pose, r))}
+    ${snapSection(buildSnapshots(pose, r), sid)}
     <section class="section"><div class="section-head rise"><h2>How to improve</h2></div>
       ${recs.length ? recCards(recs) : '<p class="muted">Nothing flagged. Keep it up and test again in 1-2 weeks.</p>'}
       ${r.tips.length ? `<p class="muted small" style="margin-top:16px"><b>Notes:</b> ${r.tips.map(esc).join(' ')}</p>` : ''}
@@ -860,6 +896,7 @@ function renderResult(out: HTMLElement, video: HTMLVideoElement, pose: Pose, r: 
 
   out.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => (b.onclick = () => navigate(b.dataset.go as Tab)));
   phoneLayout(out);
+  hydratePhotos(out);
   animateIn(out);
   const stage = out.querySelector<HTMLElement>('.stage')!;
   const canvas = stage.querySelector('canvas')!;

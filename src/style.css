@@ -623,3 +623,15 @@ details.guide > summary::-webkit-details-marker { display: none; }
   .snaps > * { flex: 0 0 78%; min-width: 0; scroll-snap-align: start; }
   .sheet-body .snaps { --bleed: 28px; }
 }
+
+/* ---------- optional photos under the key moment drawings ---------- */
+.check { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; font-size: 15px; }
+.check input { flex: none; width: 22px; height: 22px; margin: 1px 0 0; padding: 0; accent-color: var(--fg); }
+.check span { display: flex; flex-direction: column; gap: 2px; font-weight: 500; }
+.check small { font-size: 13px; font-weight: 400; line-height: 1.4; }
+.snap-svg.photo .headdot { display: none; }
+.snap-svg.photo .bones, .snap-svg.photo .joint, .snap-svg.photo .limb { filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.75)); }
+.snap-svg.photo .bones { stroke: #ffffff; opacity: 0.95; }
+.snap-svg.photo .joint { fill: #ffffff; stroke: #111111; }
+.snap-svg.photo .wedge { fill-opacity: 0.45; }
+.snap-svg.photo .deg { fill: #ffffff; stroke: #111111; }

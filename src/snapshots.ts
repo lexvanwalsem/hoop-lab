@@ -23,6 +23,7 @@ export interface AngleMark {
 
 export interface Snap {
   name: string;
+  frame?: number; // the video frame it was taken from, used to cut an optional photo
   ar: number; // frame width over height, so the drawing keeps its proportions
   pts: [number, number][]; // x, y in 0..1 for each of KEEP
   angles: AngleMark[];
@@ -125,6 +126,7 @@ export function buildSnapshots(pose: Pose, result: Result): Snap[] {
     if (!lm) continue;
     snaps.push({
       name: m.name,
+      frame,
       ar: round(pose.width / pose.height, 3),
       pts: KEEP.map((k) => [round(lm[k].x), round(lm[k].y)] as [number, number]),
       angles,
@@ -147,7 +149,7 @@ export function sanitizeSnaps(raw: unknown): Snap[] {
     const angles = (Array.isArray(s.angles) ? (s.angles as Record<string, unknown>[]) : [])
       .filter((a) => a && [a.a, a.b, a.c].every((i) => isNum(i) && i >= 0 && i < KEEP.length) && isNum(a.deg) && typeof a.label === 'string' && STATUSES.includes(a.status as Status))
       .map((a) => ({ a: a.a as number, b: a.b as number, c: a.c as number, deg: a.deg as number, label: a.label as string, status: a.status as Status, ...(typeof a.target === 'string' ? { target: a.target } : {}) }));
-    out.push({ name: s.name, ar: s.ar, pts: pts as [number, number][], angles });
+    out.push({ name: s.name, ...(isNum(s.frame) ? { frame: s.frame } : {}), ar: s.ar, pts: pts as [number, number][], angles });
   }
   return out;
 }

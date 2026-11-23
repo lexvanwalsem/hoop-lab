@@ -32,23 +32,30 @@ function wedge(p: (i: number) => [number, number], m: AngleMark, u: number): str
   </g>`;
 }
 
-export function snapSvg(s: Snap): string {
-  const p = (i: number): [number, number] => [s.pts[i][0] * s.ar * H, s.pts[i][1] * H];
-  const xs = s.pts.map((_, i) => p(i)[0]);
-  const ys = s.pts.map((_, i) => p(i)[1]);
+/** The crop around the person, in drawing units and as a share of the frame (for cutting a photo that lines up). */
+export function snapBox(s: Snap): { vx: number; vy: number; boxW: number; boxH: number; u: number; norm: { x: number; y: number; w: number; h: number } } {
+  const xs = s.pts.map((q) => q[0] * s.ar * H);
+  const ys = s.pts.map((q) => q[1] * H);
   const bodyH = Math.max(Math.max(...ys) - Math.min(...ys), 40);
   const bodyW = Math.max(Math.max(...xs) - Math.min(...xs), 10);
-  const u = bodyH / 100; // everything is drawn relative to the body, so a small figure and a big one look the same
   const cx = (Math.max(...xs) + Math.min(...xs)) / 2;
   const cy = (Math.max(...ys) + Math.min(...ys)) / 2;
   // a steady 4:5 box around the person, so the cards line up
   const boxH = Math.max(bodyH * 1.5, (bodyW * 1.6) / 0.8);
   const boxW = boxH * 0.8;
+  const vx = cx - boxW / 2;
+  const vy = cy - boxH / 2;
+  return { vx, vy, boxW, boxH, u: bodyH / 100, norm: { x: vx / (s.ar * H), y: vy / H, w: boxW / (s.ar * H), h: boxH / H } };
+}
+
+export function snapSvg(s: Snap): string {
+  const p = (i: number): [number, number] => [s.pts[i][0] * s.ar * H, s.pts[i][1] * H];
+  const { vx, vy, boxW, boxH, u } = snapBox(s);
   const bones = BONES.map(([a, b]) => `M${f(p(slotOf(a))[0])} ${f(p(slotOf(a))[1])}L${f(p(slotOf(b))[0])} ${f(p(slotOf(b))[1])}`).join('');
   const head = p(slotOf(0));
   const headR = 6 * u;
   const label = `${s.name}: ${s.angles.map((a) => `${a.label} ${a.deg} degrees`).join(', ') || 'body position'}`;
-  return `<svg class="snap-svg" style="--u:${u.toFixed(2)}" viewBox="${f(cx - boxW / 2)} ${f(cy - boxH / 2)} ${f(boxW)} ${f(boxH)}" role="img" aria-label="${label}">
+  return `<svg class="snap-svg" style="--u:${u.toFixed(2)}" viewBox="${f(vx)} ${f(vy)} ${f(boxW)} ${f(boxH)}" role="img" aria-label="${label}">
     <path class="bones" d="${bones}"/>
     <circle class="headdot" cx="${f(head[0])}" cy="${f(head[1] - headR * 0.4)}" r="${f(headR)}"/>
     ${KEEP_DOTS(p, u)}

@@ -46,7 +46,9 @@ finds your joints in every frame, finds each jump or shot in the clip and measur
 - **Where it went wrong:** the key moments of every jump or shot (dip, takeoff, landing; set point, release) are drawn as the
   tracked body with the joint angles on it. A wedge shows each angle, flagged angles are coloured and show their target,
   and the card is outlined when it needs work. They are saved with the session as small drawings (about 2 KB), not as
-  video or photos, so they contain no faces and can be opened again later.
+  video, so they contain no faces and can be opened again later. Optionally (off by default) a photo of each moment can
+  be kept too: it is cut around you, about 25 KB, stored on this device only and not part of backups, and the drawing is
+  laid over it so the angles sit on your real body.
 - **Replay:** the tracked skeleton of every jump or shot, with a timeline you can step through by phase.
 - **Advice:** every metric that is flagged comes with a plain explanation and concrete drills, with sets and reps. Each
   drill has a Watch link that opens a video search for how to do it, only when you click it.
@@ -217,6 +219,7 @@ npm run build    # type check and production build into dist/
 |---|---|
 | `src/pose.ts` | Steps through a video and runs pose and ball detection |
 | `src/snapshots.ts`, `src/snapview.ts` | Key moments: the body points and joint angles of a frame, and how they are drawn |
+| `src/photos.ts` | The optional photos of the key moments, cut and kept in IndexedDB |
 | `src/camera.ts`, `src/framing.ts` | The live framing check and its pure rules |
 | `src/video.ts` | Reads the frame rate from the MP4 or MOV header, probes the video |
 | `src/analysis.ts` | Calibration, jump and shot detection, metrics |
