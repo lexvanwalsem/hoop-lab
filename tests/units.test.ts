@@ -230,3 +230,14 @@ test('the turn is required for a shot but only advised for a jump', () => {
   assert.equal(jump.ready, true);
   assert.match(jump.say, /joint angles/i);
 });
+
+// ---- a jump marked by hand ----
+
+import { manualJump } from '../src/analysis.ts';
+
+test('a jump marked by hand gives the height from the flight time', () => {
+  const r = manualJump(0.6, 95);
+  assert.ok(Math.abs(r.headline - 44.1) < 0.2); // g * t^2 / 8
+  assert.equal(r.metrics[1].value, '0.60 s');
+  assert.ok(r.metrics.some((m) => m.label === 'Peak power (Sayers)'));
+});

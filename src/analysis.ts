@@ -211,6 +211,24 @@ export function analyzeJumps(pose: Pose, heightCm: number, kind: 'standing' | 'd
 
 const metricValue = (r: Result, label: string): number => parseFloat(r.metrics.find((m) => m.label.startsWith(label))?.value ?? '0');
 
+/**
+ * A jump measured by hand: the person marked the first frame in the air and the first frame back on the floor.
+ * Only the flight time counts, so it works from any camera angle and distance, even when the tracker cannot follow the body.
+ */
+export function manualJump(flightSeconds: number, weightKg?: number): Result {
+  const hang = (100 * G * flightSeconds * flightSeconds) / 8;
+  const metrics: Metric[] = [
+    { label: 'Jump height (flight time)', value: `${hang.toFixed(1)} cm`, status: 'info' },
+    { label: 'Flight time', value: `${flightSeconds.toFixed(2)} s`, status: 'info' },
+  ];
+  if (weightKg) {
+    const power = 60.7 * hang + 45.3 * weightKg - 2055;
+    metrics.push({ label: 'Peak power (Sayers)', value: `${power.toFixed(0)} W`, status: 'info' });
+    metrics.push({ label: 'Relative power', value: `${(power / weightKg).toFixed(1)} W/kg`, status: status(band(power / weightKg, 55, 200, 20)), target: '55+ W/kg' });
+  }
+  return { kind: 'standing', headline: hang, metrics, tips: ['Marked by hand, so there are no joint angles. Film at 60 fps and about 45 degrees to get the full analysis.'], marks: [], detectionRate: 1 };
+}
+
 /** Single jump: the highest one in the clip. */
 export function analyzeJump(pose: Pose, heightCm: number, kind: 'standing' | 'dunk', weightKg?: number): Result {
   const all = analyzeJumps(pose, heightCm, kind, weightKg);

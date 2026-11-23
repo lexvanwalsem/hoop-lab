@@ -59,6 +59,21 @@ export const filmingGuide: Section[] = [
   },
 ];
 
+/** Every way people actually film, and what the app can still measure from it. */
+export const setups: Section = {
+  title: 'Other ways of filming',
+  intro: 'Nobody always has a tripod and 5 metres. This is what still works.',
+  layout: 'steps',
+  items: [
+    { icon: 'camera', t: '45 degrees (best)', d: 'Full analysis: jump height, joint angles, landing and power.' },
+    { icon: 'camera', t: 'From the front or the back', d: 'Jump height and power work. Knee and hip angles are less exact because the bend points at the camera.' },
+    { icon: 'camera', t: 'Fully sideways, 90 degrees', d: 'Jump height works. The tracker may lose your far arm and leg, so angles can drop out. Turn a little if you can.' },
+    { icon: 'camera', t: 'Phone on the floor or too close', d: 'Keep your head and feet in the frame. If they are not, the tracker cannot find you. Lean the phone on something at hip height instead.' },
+    { icon: 'camera', t: 'Walking or running into the picture', d: 'The automatic analysis can be fooled by a floor that shifts. Stay on one spot, or use Measure by hand on the Analyze tab.' },
+    { icon: 'check', t: 'Nothing works?', d: 'Measure by hand: you mark the frame you leave the floor and the frame you land. That works from any angle, any distance, any phone, and gives jump height and power.' },
+  ],
+};
+
 export const jumpGuide: Section[] = [
   {
     title: 'What decides how high you jump',

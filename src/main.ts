@@ -5,9 +5,9 @@ import '@fontsource/barlow-condensed/700.css';
 import type { Chart } from 'chart.js';
 import './style.css';
 import { shortDate, trendChart, volumeChart, type Series } from './charts';
-import { analyzeJumps, analyzeShots, type Kind, type Metric, type Result } from './analysis';
+import { analyzeJumps, analyzeShots, manualJump, type Kind, type Metric, type Result } from './analysis';
 import { drillName, exampleUrl, recommend, type Rec } from './coach';
-import { filmingGuide, jumpGuide, type Section } from './guide';
+import { filmingGuide, jumpGuide, setups, type Section } from './guide';
 import { extractPose, type Pose } from './pose';
 import { demoData } from './demo';
 import { exportBackup, importBackup, load, newId, save, sortByDate, today, type Data, type Session, backupDue, lastBackup, markBackup } from './store';
@@ -698,7 +698,18 @@ function analyze(view: HTMLElement): void {
         </div></section>
 
       <section class="section"><div class="section-head rise"><h2>3. Analysis</h2></div>
-        <div class="tile busy rise"><div class="numeral md" id="pct">0<small>%</small></div><div class="stack" style="flex:1;min-width:0"><div class="meter"><div id="pbar" style="width:0"></div></div><p id="status" class="muted" role="status">Choose a video to begin.</p><div><button class="btn small" id="cancel" hidden>Cancel</button></div></div></div></section>
+        <div class="tile busy rise"><div class="numeral md" id="pct">0<small>%</small></div><div class="stack" style="flex:1;min-width:0"><div class="meter"><div id="pbar" style="width:0"></div></div><p id="status" class="muted" role="status">Choose a video to begin.</p><div class="row"><button class="btn small" id="cancel" hidden>Cancel</button><button class="btn small" id="manualBtn" hidden>Measure by hand</button></div></div></div></section>
+
+      <section class="section" id="manual" hidden><div class="section-head rise"><h2>Measure by hand</h2></div>
+        <div class="tile stack rise">
+          <p class="muted">This works from any angle and distance, even when the tracker cannot follow you. Step to the first frame your feet are in the air and mark it, then to the first frame they touch the floor again.</p>
+          <div id="mvbox"></div>
+          <input id="mscrub" type="range" min="0" max="0" value="0" aria-label="Frame">
+          <div class="row"><button class="btn" id="mPrev" type="button">Back a frame</button><span class="muted small" id="mFrame"></span><button class="btn" id="mNext" type="button">Forward a frame</button></div>
+          <div class="row"><button class="btn" id="mTake" type="button">Mark: in the air</button><button class="btn" id="mLand" type="button">Mark: back on the floor</button></div>
+          <p class="muted" id="mOut" role="status"></p>
+          <button class="btn primary big" id="mSave" type="button" disabled>Save this jump</button>
+        </div></section>
 
       <div id="out" class="scroll-target"></div>
     </div>`;
@@ -718,6 +729,7 @@ function analyze(view: HTMLElement): void {
     run.disabled = job.running;
     run.textContent = job.running ? 'Analyzing...' : 'Analyze';
     $('cancel').hidden = !job.running;
+    $('manualBtn').hidden = !chosen || job.running;
     if (job.results && job.video && job.pose && job.results !== shown && !job.running) {
       shown = job.results;
       renderResults($('out'), job.video, job.pose, job.results, job.ids ?? []);
@@ -761,6 +773,8 @@ function analyze(view: HTMLElement): void {
       job.status = 'Ready. Check your height and weight, then analyze.';
       shown = null;
       $('out').innerHTML = '';
+      manual.take = manual.land = -1;
+      $('manual').hidden = true;
       $('drop').textContent = 'Choose another video';
       renderInfo();
     } catch (e) {
@@ -768,6 +782,50 @@ function analyze(view: HTMLElement): void {
       job.status = e instanceof Error ? e.message : String(e);
     }
     paint();
+  };
+  // measuring by hand: only the flight time counts, so any filming set-up works
+  const manual = { cur: 0, take: -1, land: -1 };
+  const fpsOf = (): number => chosen!.info.fps;
+  const lastFrame = (): number => Math.max(0, Math.floor(chosen!.info.duration * fpsOf()) - 1);
+  const goto = (i: number): void => {
+    if (!chosen) return;
+    manual.cur = Math.min(lastFrame(), Math.max(0, i));
+    chosen.video.currentTime = (manual.cur + 0.5) / fpsOf();
+    $<HTMLInputElement>('mscrub').value = String(manual.cur);
+    $('mFrame').textContent = `frame ${manual.cur}`;
+  };
+  const flightOf = (): number => (manual.take >= 0 && manual.land > manual.take ? (manual.land - manual.take) / fpsOf() : 0);
+  const showManual = (): void => {
+    if (!chosen) return;
+    const v = chosen.video;
+    v.controls = false;
+    v.style.cssText = 'width:100%;max-height:38dvh;margin-inline:auto;display:block;border-radius:12px;background:#000';
+    $('mvbox').append(v);
+    $<HTMLInputElement>('mscrub').max = String(lastFrame());
+    $('manual').hidden = false;
+    goto(0);
+    $('manual').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  };
+  const updateManual = (): void => {
+    const t = flightOf();
+    const out = $('mOut');
+    $<HTMLButtonElement>('mSave').disabled = !(t >= 0.15 && t <= 1.2);
+    if (manual.take < 0 || manual.land < 0) out.textContent = manual.take < 0 ? 'Mark the first frame in the air.' : 'Now mark the first frame back on the floor.';
+    else if (t < 0.15 || t > 1.2) out.textContent = 'That flight time does not look like a jump. Mark the frames again.';
+    else out.textContent = `Flight time ${t.toFixed(2)} s, jump height about ${manualJump(t).headline.toFixed(0)} cm.`;
+  };
+  $('manualBtn').onclick = showManual;
+  $<HTMLInputElement>('mscrub').oninput = (e) => goto(Number((e.target as HTMLInputElement).value));
+  $('mPrev').onclick = () => goto(manual.cur - 1);
+  $('mNext').onclick = () => goto(manual.cur + 1);
+  $('mTake').onclick = () => { manual.take = manual.cur; updateManual(); };
+  $('mLand').onclick = () => { manual.land = manual.cur; updateManual(); };
+  $('mSave').onclick = () => {
+    const weight = Number($<HTMLInputElement>('weight').value);
+    const r = manualJump(flightOf(), weight >= 30 && weight <= 200 ? weight : undefined);
+    data.sessions.push({ id: newId(), date: today(), kind: 'standing', headline: r.headline, metrics: r.metrics, tips: r.tips });
+    $('mOut').textContent = save(data) ? `Saved: ${r.headline.toFixed(0)} cm. It is on your dashboard.` : 'The browser could not store it (storage full or blocked). Export what you need.';
+    $<HTMLButtonElement>('mSave').disabled = true;
   };
   acceptClip = (file, fps) => void take(file, fps);
   if (incoming) {
@@ -848,7 +906,7 @@ function analyze(view: HTMLElement): void {
     } catch (e) {
       const cancelled = e instanceof DOMException && e.name === 'AbortError';
       job.failed = !cancelled;
-      job.status = cancelled ? 'Cancelled.' : e instanceof Error ? e.message : String(e);
+      job.status = cancelled ? 'Cancelled.' : `${e instanceof Error ? e.message : String(e)} You can also measure the jump by hand.`;
     } finally {
       job.running = false;
       keepAwake(false);
@@ -975,7 +1033,7 @@ let guideSel: 'jump' | 'shot' = 'jump';
 /** One guide with two tabs: jumping and shooting. The set-up of the camera is shared. */
 function guide(view: HTMLElement): void {
   const [setup, standing, dunk, shot] = filmingGuide;
-  const sections = guideSel === 'jump' ? [setup, standing, dunk, ...jumpGuide] : [setup, shot];
+  const sections = guideSel === 'jump' ? [setup, setups, standing, dunk, ...jumpGuide] : [setup, setups, shot];
   const tabs = [['jump', 'Jumping'], ['shot', 'Shooting']] as const;
   const seg = `<div class="pills guide-seg rise" role="group" aria-label="Guide">${tabs.map(([k, l]) => `<button class="pill ${k === guideSel ? 'on' : ''}" data-g="${k}" aria-pressed="${k === guideSel}">${l}</button>`).join('')}</div>`;
   guidePage(view, 'Guide', guideSel === 'jump' ? 'How to film a jump, and how to jump higher.' : 'How to film a shot so the tracker reads it well.', seg, sections, framingPanel());
