@@ -182,6 +182,7 @@ async function show(next: Tab, soft = false): Promise<void> {
     filming: () => guidePage(view, 'Filming', 'Good footage in, good numbers out.', '', filmingGuide, false, framingPanel()),
     log,
   })[tab](view);
+  phoneLayout(view);
   animateIn(view, soft);
   stopFigures = runFigures(view, reduceMotion);
 }
@@ -191,6 +192,42 @@ async function show(next: Tab, soft = false): Promise<void> {
  * and everything inside it (counters, meters, gauges, sparklines) starts at that moment.
  * Only opacity, transform and the width or position of fixed boxes animate, so nothing in the layout moves.
  */
+const phoneQuery = window.matchMedia('(max-width: 700px)');
+
+/** On a phone, lists of cards become swipeable rows with position dots, and long tables show only the latest rows. */
+function phoneLayout(root: HTMLElement): void {
+  if (!phoneQuery.matches) return;
+  root.querySelectorAll<HTMLElement>('.stats, .recs, .cards, .week, .picker, .fpanel').forEach((row) => {
+    const n = row.children.length;
+    if (n < 2 || row.nextElementSibling?.classList.contains('dots')) return;
+    const dots = document.createElement('div');
+    dots.className = 'dots';
+    dots.setAttribute('aria-hidden', 'true');
+    dots.innerHTML = '<i></i>'.repeat(n);
+    row.after(dots);
+    const paint = (): void => {
+      const span = row.scrollWidth - row.clientWidth;
+      const at = span > 0 ? Math.round((row.scrollLeft / span) * (n - 1)) : 0;
+      [...dots.children].forEach((d, i) => d.classList.toggle('on', i === at));
+    };
+    row.addEventListener('scroll', paint, { passive: true });
+    paint();
+  });
+  root.querySelectorAll<HTMLTableElement>('table').forEach((table) => {
+    const rows = [...table.querySelectorAll('tr')].slice(1);
+    if (rows.length <= 7 || table.nextElementSibling?.classList.contains('more')) return;
+    rows.slice(7).forEach((r) => (r.hidden = true));
+    const more = document.createElement('button');
+    more.className = 'btn more';
+    more.textContent = `Show all ${rows.length}`;
+    more.onclick = () => {
+      rows.forEach((r) => (r.hidden = false));
+      more.remove();
+    };
+    table.after(more);
+  });
+}
+
 function animateIn(root: HTMLElement, instant = false): void {
   // reserve the final width of every counter first, so the unit next to it never shifts
   root.querySelectorAll<HTMLElement>('.count').forEach((el) => {
@@ -343,6 +380,7 @@ function openSheet(s: Session): void {
   document.documentElement.classList.add('sheet-open');
   document.body.appendChild(el);
   app.inert = true; // the page behind cannot take focus while the sheet is open
+  phoneLayout(el);
   animateIn(el);
   setTimeout(() => el.classList.add('open'), 30); // after the first paint, so the transition runs
   el.querySelector<HTMLElement>('[data-close]')?.focus();
@@ -734,6 +772,7 @@ function renderResults(out: HTMLElement, video: HTMLVideoElement, pose: Pose, re
   out.innerHTML = `<section class="section"><div class="section-head rise"><h2>${results.length} ${noun.toLowerCase()}s found</h2></div>
     <p class="muted rise">Average <b style="color:var(--fg)">${avg(scores).toFixed(0)}${unit}</b>, from ${Math.min(...scores).toFixed(0)} to ${Math.max(...scores).toFixed(0)}${unit}. Pick one to inspect it.</p>
     <div class="pills rise" style="margin-top:16px">${results.map((r, i) => `<button class="pill" data-shot="${i}">${noun} ${i + 1} (${r.headline.toFixed(0)})</button>`).join('')}</div></section><div id="shot"></div>`;
+  phoneLayout(out);
   animateIn(out);
   let tallest = 0; // the result area never shrinks while you switch, so the page below does not jump
   const pick = (i: number): void => {
@@ -783,6 +822,7 @@ function renderResult(out: HTMLElement, video: HTMLVideoElement, pose: Pose, r: 
     </section>`;
 
   out.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => (b.onclick = () => navigate(b.dataset.go as Tab)));
+  phoneLayout(out);
   animateIn(out);
   const stage = out.querySelector<HTMLElement>('.stage')!;
   const canvas = stage.querySelector('canvas')!;
@@ -844,12 +884,14 @@ function guidePage(view: HTMLElement, title: string, subtitle: string, art: stri
     <div class="wrap"><div class="section guide-grid" style="padding-bottom:80px">
       ${lead ? `<section class="tile lead rise"><h2>What the camera should see</h2>${lead}<div style="margin-top:16px"><button class="btn" data-cam>Check my framing with the camera</button></div></section>` : ''}
       ${sections
-        .map((s) => {
+        .map((s, i) => {
           const wide = s.layout === 'week' || (s.layout === 'cards' && s.items.length >= 5);
-          return `<section class="tile guide rise" style="${wide ? 'grid-column:1/-1' : ''}"><h2>${esc(s.title)}</h2>${s.intro ? `<p class="intro">${esc(s.intro)}</p>` : ''}${body(s)}</section>`;
+          return `<details class="tile guide rise" style="${wide ? 'grid-column:1/-1' : ''}"${!phoneQuery.matches || i === 0 ? ' open' : ''}><summary><h2>${esc(s.title)}</h2></summary>${s.intro ? `<p class="intro">${esc(s.intro)}</p>` : ''}${body(s)}</details>`;
         })
         .join('')}
     </div></div>`;
+  // sections only fold on a phone; on a larger screen everything stays open
+  view.querySelectorAll<HTMLElement>('details.guide > summary').forEach((s) => s.addEventListener('click', (e) => !phoneQuery.matches && e.preventDefault()));
   if (window.matchMedia('(max-width: 900px)').matches) view.querySelectorAll<HTMLElement>('.guide').forEach((el) => (el.style.gridColumn = 'auto'));
 }
 

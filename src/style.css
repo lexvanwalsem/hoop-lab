@@ -476,3 +476,42 @@ button, a, input, select, label { touch-action: manipulation; } /* no double-tap
 .rec .watch { margin-left: 4px; font-size: 12px; font-weight: 600; color: var(--fg); text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; }
 @media (pointer: coarse) { .rec .watch { display: inline-block; padding: 6px 4px; } }
 .demo-bar { margin-bottom: 12px; }
+
+/* ---------- phone: swipe rows, folding sections, position dots ---------- */
+.dots { display: none; }
+details.guide > summary { list-style: none; cursor: default; }
+details.guide > summary::-webkit-details-marker { display: none; }
+@media (max-width: 700px) {
+  .stats, .recs, .cards, .week, .picker, .fpanel {
+    --bleed: var(--pad);
+    display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
+    margin-left: calc(var(--bleed) * -1); margin-right: calc(var(--bleed) * -1); padding: 0 var(--bleed) 4px; scroll-padding: 0 var(--bleed);
+  }
+  .tile .cards, .tile .week, .tile .fpanel { --bleed: 20px; }
+  .sheet-body .recs { --bleed: 28px; }
+  .stats::-webkit-scrollbar, .recs::-webkit-scrollbar, .cards::-webkit-scrollbar, .week::-webkit-scrollbar, .picker::-webkit-scrollbar, .fpanel::-webkit-scrollbar { display: none; }
+  .stats > *, .recs > *, .cards > *, .week > *, .picker > *, .fpanel > * { flex: 0 0 84%; min-width: 0; scroll-snap-align: start; }
+  .week > * { flex-basis: 46%; }
+  .stats { gap: 24px; margin-top: 32px; }
+  .stats > * { flex-basis: 88%; }
+  .picker > * { min-height: 200px; }
+  .dots { display: flex; justify-content: center; gap: 8px; margin-top: 12px; }
+  .dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: background var(--t-fast), transform var(--t-fast) var(--ease); }
+  .dots i.on { background: var(--fg); transform: scale(1.25); }
+  .band .dots i { background: #4b4b4d; }
+  .band .dots i.on { background: #fff; }
+  /* folding guide sections */
+  details.guide > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; min-height: 44px; }
+  details.guide > summary::after { content: ''; flex: none; width: 10px; height: 10px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform var(--t-base) var(--ease); }
+  details.guide[open] > summary::after { transform: rotate(-135deg); }
+  details.guide:not([open]) { padding-bottom: 8px; }
+  .btn.more { margin-top: 12px; width: 100%; }
+  .guide-grid { gap: 8px; }
+}
+/* phone: the jumper sits above the title, never behind it */
+@media (max-width: 700px) {
+  .guide-band .wrap { min-height: 470px; }
+  .guide-band .display { max-width: none; }
+  .guide-band p { max-width: none; }
+  .figure { height: 210px; top: 24px; bottom: auto; right: var(--pad); }
+}

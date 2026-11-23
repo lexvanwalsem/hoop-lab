@@ -50,6 +50,8 @@ finds your joints in every frame, finds each jump or shot in the clip and measur
   exercise log.
 - **Framing check:** a live camera view that tracks your body and tells you what to fix before you film: whole body in
   frame, big enough with room to jump, side-on, enough light. Nothing is recorded; you then film with your camera app.
+- **Built for the phone:** lists of cards become swipeable rows with dots, guide sections fold open one at a time, and long
+  tables show the latest rows first, so there is no endless scrolling.
 - **Guides:** how to film so the numbers are good, and how to jump higher (technique, training, a simple week).
 
 <p align="center">
