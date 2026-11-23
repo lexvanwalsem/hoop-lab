@@ -427,7 +427,7 @@ a:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--focus); }
 .guide-band.plain .wrap { min-height: 0; }
 
 /* ---------- framing check (live camera) ---------- */
-.camcheck { --fg: #ffffff; --bg: #111111; --border: #4b4b4d; --muted: #9e9ea0; --good: #1eaa52; --bad: #ee0005; position: fixed; inset: 0; z-index: 60; display: flex; background: #111111; color: #ffffff; }
+.camcheck { --accent: #ffffff; --accent-on: #111111; --accent-hover: #e5e5e5; --fg: #ffffff; --bg: #111111; --border: #4b4b4d; --muted: #9e9ea0; --good: #1eaa52; --bad: #ee0005; position: fixed; inset: 0; z-index: 60; display: flex; background: #111111; color: #ffffff; }
 .cam-stage { position: relative; flex: 1; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; background: #000000; }
 .cam-view { position: relative; height: 100%; max-width: 100%; aspect-ratio: var(--ar, 9 / 16); }
 .cam-view.mirror { transform: scaleX(-1); }
@@ -635,3 +635,9 @@ details.guide > summary::-webkit-details-marker { display: none; }
 .snap-svg.photo .joint { fill: #ffffff; stroke: #111111; }
 .snap-svg.photo .wedge { fill-opacity: 0.45; }
 .snap-svg.photo .deg { fill: #ffffff; stroke: #111111; }
+
+/* recording in the framing view */
+.cam-count { position: absolute; inset: 0; display: grid; place-items: center; color: #ffffff; font: 700 clamp(120px, 40vw, 220px) / 1 var(--display); text-shadow: 0 4px 24px rgba(0, 0, 0, 0.6); pointer-events: none; }
+.cam-count.rec { inset: 16px auto auto 16px; display: inline-flex; place-items: initial; padding: 6px 14px; border-radius: 99px; background: var(--bad); color: #ffffff; font: 600 15px/1.4 var(--body); text-shadow: none; }
+.cam-checks li.adv svg { color: var(--warn); }
+.cam-checks li.adv { color: #c7c7c9; }

@@ -55,7 +55,10 @@ finds your joints in every frame, finds each jump or shot in the clip and measur
 - **Progress:** a dashboard with your jump trend, shot score, personal bests, the habits that keep coming back, and an
   exercise log.
 - **Framing check:** a live camera view that tracks your body and tells you what to fix before you film: whole body in
-  frame, big enough with room to jump, side-on, enough light. Nothing is recorded; you then film with your camera app.
+  frame, big enough with room to jump, side-on (required for a shot, only advised for a jump, whose height works from any
+  angle), enough light. You can record right there with a 5 second countdown, and the clip goes straight into Analyze.
+  A clip recorded in the browser is often 30 fps and compressed, so for the most exact timing film with your camera app
+  at 60 fps or more and choose the file.
 - **Built for the phone:** lists of cards become swipeable rows with dots, guide sections fold open one at a time, and long
   tables show the latest rows first, so there is no endless scrolling.
 - **Guides:** how to film so the numbers are good, and how to jump higher (technique, training, a simple week).

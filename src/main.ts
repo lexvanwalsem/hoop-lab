@@ -642,6 +642,15 @@ function dashboard(view: HTMLElement): void {
 let selKind: Kind = 'standing';
 let chosen: { file: File; video: HTMLVideoElement; info: VideoInfo } | null = null;
 
+/** A clip recorded in the framing view: it waits here until the Analyze page can take it. */
+let incoming: { file: File; fps: number } | null = null;
+let acceptClip: ((file: File, fps?: number) => void) | null = null;
+function recorded(file: File, fps: number): void {
+  if (tab === 'analyze' && acceptClip) return acceptClip(file, fps);
+  incoming = { file, fps };
+  navigate('analyze');
+}
+
 /** Rough tracking time in seconds: the shot also runs ball detection, which is slower. */
 const estimateSeconds = (info: VideoInfo, kind: Kind): number => info.duration * info.sampleFps * (kind === 'shot' ? 0.22 : 0.09);
 
@@ -721,14 +730,14 @@ function analyze(view: HTMLElement): void {
     renderInfo();
   }));
 
-  const take = async (file: File): Promise<void> => {
+  const take = async (file: File, fps?: number): Promise<void> => {
     if (job.running) return; // one analysis at a time
     const video = document.createElement('video');
     video.muted = true;
     video.playsInline = true;
     video.src = URL.createObjectURL(file);
     try {
-      chosen = { file, video, info: await probeVideo(file, video) };
+      chosen = { file, video, info: await probeVideo(file, video, fps) };
       job.results = null;
       job.pose = null;
       job.progress = 0;
@@ -744,6 +753,12 @@ function analyze(view: HTMLElement): void {
     }
     paint();
   };
+  acceptClip = (file, fps) => void take(file, fps);
+  if (incoming) {
+    const clip = incoming;
+    incoming = null;
+    void take(clip.file, clip.fps);
+  }
   $<HTMLInputElement>('file').onchange = (ev) => {
     const f = (ev.target as HTMLInputElement).files?.[0];
     if (f) void take(f);
@@ -1037,7 +1052,7 @@ void Promise.race([
 });
 
 document.addEventListener('click', (e) => {
-  if ((e.target as Element).closest('[data-cam]')) openFramingCheck();
+  if ((e.target as Element).closest('[data-cam]')) openFramingCheck({ kind: tab === 'analyze' ? selKind : undefined, onRecorded: recorded });
 });
 
 // Offline support and durable storage. Only in the production build: during development a cache gets in the way.

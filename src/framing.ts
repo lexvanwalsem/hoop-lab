@@ -11,6 +11,8 @@ export interface Check {
   label: string;
   ok: boolean;
   hint: string;
+  /** A nice-to-have: when it fails it is shown, but it does not stop "ready". */
+  advisory?: boolean;
 }
 
 export interface Framing {
@@ -39,7 +41,11 @@ const inside = (p: LivePt): boolean => p.v >= VISIBLE && p.x > MARGIN && p.x < 1
 const mid = (a: LivePt, b: LivePt): { x: number; y: number } => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 
 /** `lm` are the 33 pose landmarks of one frame (or null when nobody was found). `brightness` is the mean luma of the frame, if known. */
-export function checkFraming(lm: LivePt[] | null, aspect: number, brightness?: number): Framing {
+/**
+ * `sideOn` says how much the side view matters: a shot needs it (the arc and the elbow are read from the side), a jump
+ * does not (its height comes from flight time and works from any angle), but joint angles are better from the side.
+ */
+export function checkFraming(lm: LivePt[] | null, aspect: number, brightness?: number, sideOn: 'required' | 'advised' = 'required'): Framing {
   const checks: Check[] = [];
   const found = !!lm && lm.length >= 33;
 
@@ -71,19 +77,21 @@ export function checkFraming(lm: LivePt[] | null, aspect: number, brightness?: n
   }
   checks.push({
     id: 'angle',
-    label: 'Side-on',
+    label: sideOn === 'required' ? 'Side-on' : 'Side-on (best for joint angles)',
     ok: found && ratio <= MAX_SHOULDER_RATIO,
     hint: found ? 'Turn so the camera sees your side, not your chest.' : NOBODY,
+    ...(sideOn === 'advised' ? { advisory: true } : {}),
   });
 
   if (brightness !== undefined) {
     checks.push({ id: 'light', label: 'Enough light', ok: brightness >= MIN_BRIGHTNESS, hint: 'It is dark. Turn on a light or film near a window.' });
   }
 
-  const first = checks.find((c) => !c.ok);
+  const first = checks.find((c) => !c.ok && !c.advisory);
+  const tip = checks.find((c) => !c.ok && c.advisory);
   return {
     checks,
     ready: !first,
-    say: first ? first.hint : 'Looks good. Leave the phone exactly here and film with your camera app at 60 fps.',
+    say: first ? first.hint : tip && found ? 'Good to go. Facing the side would give better joint angles, but the jump height works from here.' : 'Looks good. You can record now, or film with your camera app at 60 fps.',
   };
 }

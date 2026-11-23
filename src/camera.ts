@@ -1,4 +1,5 @@
 import { VERDICT } from './art';
+import type { Kind } from './analysis';
 import { checkFraming, type Check, type Framing } from './framing';
 import { createLivePose } from './pose';
 
@@ -10,7 +11,9 @@ const SMOOTH = 3; // a check needs to hold in 2 of the last 3 looks, so the list
 const NO_CAMERA = 'This browser cannot open the camera here. Camera access needs a secure address (https) or localhost.';
 
 /** Full-screen live view with a checklist: is the person framed the way the analysis needs? Nothing is recorded or sent anywhere. */
-export function openFramingCheck(): void {
+/** `kind` decides how much the side view matters. `onRecorded` receives a clip recorded here, with the frame rate the camera reported. */
+export function openFramingCheck(opts: { kind?: Kind; onRecorded?: (file: File, fps: number) => void } = {}): void {
+  const sideOn = opts.kind === 'shot' ? 'required' : 'advised';
   if (document.querySelector('.camcheck')) return;
   const opener = document.activeElement as HTMLElement | null;
   const root = document.createElement('div');
@@ -22,13 +25,14 @@ export function openFramingCheck(): void {
     <div class="cam-stage">
       <div class="cam-view"><video playsinline muted></video><canvas></canvas></div>
       <div class="cam-msg"><p data-msg></p><button class="btn primary" data-start>Start camera</button></div>
+      <div class="cam-count" data-count hidden aria-live="assertive"></div>
     </div>
     <aside class="cam-panel">
       <div class="row between"><h2>Framing check</h2><button class="btn small" data-close>Close</button></div>
       <p class="cam-say" data-say role="status">Stand where you will jump, with the phone where you will film from.</p>
       <ul class="cam-checks" data-checks></ul>
-      <div class="row"><button class="btn small" data-flip hidden>Flip camera</button></div>
-      <p class="muted small">Nothing is recorded or uploaded. When it says good, leave the phone exactly there and film with your camera app at 60 fps.</p>
+      <div class="row"><button class="btn primary" data-rec hidden>Record</button><button class="btn small" data-flip hidden>Flip camera</button></div>
+      <p class="muted small" data-camnote>Nothing is uploaded. Record here, with a 5 second countdown so you can step into place, or film with your camera app (60 fps or more gives the most exact timing).</p>
     </aside>`;
   document.body.append(root);
   document.documentElement.classList.add('sheet-open'); // same scroll lock as the session sheet
@@ -42,6 +46,9 @@ export function openFramingCheck(): void {
   const msg = $('[data-msg]');
   const startBtn = $<HTMLButtonElement>('[data-start]');
   const flipBtn = $<HTMLButtonElement>('[data-flip]');
+  const recBtn = $<HTMLButtonElement>('[data-rec]');
+  const countEl = $('[data-count]');
+  const camNote = $('[data-camnote]');
   const sample = document.createElement('canvas');
   sample.width = 32;
   sample.height = 18;
@@ -50,6 +57,8 @@ export function openFramingCheck(): void {
   let pose: Awaited<ReturnType<typeof createLivePose>> | null = null;
   let raf = 0;
   let closed = false;
+  let recorder: MediaRecorder | null = null;
+  let countdown = 0; // timer id while counting down or recording
   let facing: 'user' | 'environment' = 'user'; // the front camera by default: you can see the screen while you stand in front of it
   const recent: Framing[] = [];
 
@@ -59,6 +68,11 @@ export function openFramingCheck(): void {
   const close = (): void => {
     closed = true;
     cancelAnimationFrame(raf);
+    clearInterval(countdown);
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.onstop = null;
+      recorder.stop();
+    }
     stream?.getTracks().forEach((t) => t.stop());
     pose?.close();
     document.removeEventListener('keydown', onKey);
@@ -90,12 +104,12 @@ export function openFramingCheck(): void {
     recent.push(latest);
     if (recent.length > SMOOTH) recent.shift();
     const checks: Check[] = latest.checks.map((c) => ({ ...c, ok: recent.filter((f) => f.checks.find((x) => x.id === c.id)?.ok).length * 2 > recent.length }));
-    const first = checks.find((c) => !c.ok);
+    const first = checks.find((c) => !c.ok && !c.advisory);
     return { checks, ready: !first, say: first ? first.hint : latest.say };
   };
 
   const paintList = (f: Framing): void => {
-    $('[data-checks]').innerHTML = f.checks.map((c) => `<li class="${c.ok ? 'ok' : 'no'}">${VERDICT(c.ok)}<span>${c.label}</span></li>`).join('');
+    $('[data-checks]').innerHTML = f.checks.map((c) => `<li class="${c.ok ? 'ok' : c.advisory ? 'adv' : 'no'}">${VERDICT(c.ok)}<span>${c.label}</span></li>`).join('');
     $('[data-say]').textContent = f.say;
   };
 
@@ -142,7 +156,7 @@ export function openFramingCheck(): void {
       lastLight = now;
     }
     const lm = pose.detect(video);
-    const f = settled(checkFraming(lm, video.videoWidth / video.videoHeight, light));
+    const f = settled(checkFraming(lm, video.videoWidth / video.videoHeight, light, sideOn));
     draw(lm, f.ready);
     paintList(f);
   };
@@ -158,7 +172,7 @@ export function openFramingCheck(): void {
     }
     try {
       stage('Opening the camera...');
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 60 } }, audio: false });
       if (closed) {
         stream.getTracks().forEach((t) => t.stop());
         return;
@@ -170,6 +184,9 @@ export function openFramingCheck(): void {
       view.style.setProperty('--ar', `${video.videoWidth} / ${video.videoHeight}`);
       view.classList.toggle('mirror', facing === 'user');
       flipBtn.hidden = false;
+      recBtn.hidden = !opts.onRecorded || typeof MediaRecorder === 'undefined';
+      const fps = Math.round(stream.getVideoTracks()[0].getSettings().frameRate ?? 30);
+      camNote.textContent = `Camera: ${video.videoWidth}x${video.videoHeight} at ${fps} fps. ${fps < 50 ? 'That is fine for jump height. Your camera app at 60 fps or more gives more exact takeoff and shot timing.' : 'Good for exact timing.'} Nothing is uploaded.`;
       if (!pose) {
         stage('Loading the body tracker...');
         pose = await createLivePose();
@@ -194,6 +211,79 @@ export function openFramingCheck(): void {
       startBtn.textContent = 'Try again';
       startBtn.hidden = false;
     }
+  };
+
+  // ---- recording: a countdown so you can step into place, then up to 30 s ----
+  const pickMime = (): string => ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find((m) => MediaRecorder.isTypeSupported(m)) ?? '';
+
+  const resumeTracking = (): void => {
+    recBtn.textContent = 'Record';
+    recBtn.classList.add('primary');
+    countEl.hidden = true;
+    recent.length = 0;
+    raf = requestAnimationFrame(tick);
+  };
+
+  const beginRecording = (): void => {
+    const mime = pickMime();
+    const chunks: Blob[] = [];
+    const rec = new MediaRecorder(stream!, { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: 8_000_000 });
+    recorder = rec;
+    rec.ondataavailable = (e) => {
+      if (e.data.size) chunks.push(e.data);
+    };
+    rec.onstop = () => {
+      const type = rec.mimeType || mime || 'video/webm';
+      const file = new File(chunks, `recording-${new Date().toISOString().slice(0, 10)}.${type.includes('mp4') ? 'mp4' : 'webm'}`, { type });
+      const fps = Math.round(stream?.getVideoTracks()[0]?.getSettings().frameRate ?? 30);
+      close();
+      opts.onRecorded?.(file, fps);
+    };
+    rec.start();
+    let seconds = 0;
+    recBtn.textContent = 'Stop and analyze';
+    recBtn.classList.add('primary');
+    countEl.hidden = false;
+    countEl.className = 'cam-count rec';
+    $('[data-say]').textContent = 'Recording. Do your jump or shot, then tap Stop.';
+    const second = (): void => {
+      countEl.textContent = `REC ${seconds}s`;
+      if (seconds >= 30) rec.stop();
+      seconds++;
+    };
+    second();
+    countdown = window.setInterval(second, 1000);
+  };
+
+  recBtn.onclick = () => {
+    if (recorder && recorder.state === 'recording') return recorder.stop();
+    if (countdown) {
+      // cancel the countdown
+      clearInterval(countdown);
+      countdown = 0;
+      return resumeTracking();
+    }
+    if (!stream) return;
+    // the live tracking pauses while you record, so it cannot slow the camera down
+    cancelAnimationFrame(raf);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let n = 5;
+    recBtn.textContent = 'Cancel';
+    recBtn.classList.remove('primary');
+    countEl.hidden = false;
+    countEl.className = 'cam-count';
+    countEl.textContent = String(n);
+    $('[data-say]').textContent = 'Step into place. Recording starts in a moment.';
+    countdown = window.setInterval(() => {
+      n--;
+      if (n > 0) {
+        countEl.textContent = String(n);
+        return;
+      }
+      clearInterval(countdown);
+      countdown = 0;
+      beginRecording();
+    }, 1000);
   };
 
   startBtn.onclick = () => void start();

@@ -84,18 +84,40 @@ function fpsFromMoov(view: DataView, moov: Box): number | null {
   return null;
 }
 
-export async function probeVideo(file: File, video: HTMLVideoElement): Promise<VideoInfo> {
+/** A recording from MediaRecorder often has no duration in its header. Seeking far past the end makes the browser work it out. */
+async function settleDuration(video: HTMLVideoElement): Promise<void> {
+  if (Number.isFinite(video.duration)) return;
+  await new Promise<void>((resolve) => {
+    const done = (): void => {
+      video.removeEventListener('durationchange', check);
+      resolve();
+    };
+    const check = (): void => {
+      if (Number.isFinite(video.duration)) {
+        video.currentTime = 0;
+        done();
+      }
+    };
+    video.addEventListener('durationchange', check);
+    setTimeout(done, 5000);
+    video.currentTime = 1e9;
+  });
+}
+
+/** `knownFps` is for clips recorded in the app: their header has no usable frame rate, but the camera told us. */
+export async function probeVideo(file: File, video: HTMLVideoElement, knownFps?: number): Promise<VideoInfo> {
   if (!video.videoWidth) {
     await new Promise<void>((resolve, reject) => {
       video.addEventListener('loadedmetadata', () => resolve(), { once: true });
       video.addEventListener('error', () => reject(new Error(VIDEO_ERROR)), { once: true });
     });
   }
+  await settleDuration(video);
   let fps = 30; // fallback when the header cannot be read
   try {
-    fps = (await readFileFps(file)) ?? 30;
+    fps = (await readFileFps(file)) ?? knownFps ?? 30;
   } catch {
-    // keep the fallback
+    fps = knownFps ?? 30;
   }
   // 120 or 240 fps files are analyzed at an exact divisor (60 or so), frames stay aligned and tracking stays fast
   const sampleFps = fps > 62 ? fps / Math.ceil(fps / 60) : fps;
