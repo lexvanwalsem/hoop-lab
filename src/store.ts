@@ -122,3 +122,31 @@ export function importBackup(text: string, data: Data): { sessions: number; exer
 
 export const newId = (): string => Math.random().toString(36).slice(2, 10);
 export const today = (): string => new Date().toLocaleDateString('sv-SE'); // local day, yyyy-mm-dd
+
+const BACKUP_KEY = 'hooplab.lastBackup';
+const BACKUP_EVERY_DAYS = 30;
+
+/** When the last backup was exported from this browser, as an ISO date, or null. */
+export function lastBackup(): string | null {
+  try {
+    return localStorage.getItem(BACKUP_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function markBackup(): void {
+  try {
+    localStorage.setItem(BACKUP_KEY, new Date().toISOString());
+  } catch {
+    // not critical
+  }
+}
+
+/** Whether to remind the user to export a backup: never done, or longer ago than a month. Demo data does not count. */
+export function backupDue(data: Data, last: string | null, now = Date.now()): 'never' | 'old' | null {
+  if (![...data.sessions, ...data.exercises].some((x) => !x.demo)) return null;
+  if (!last) return 'never';
+  const days = (now - new Date(last).getTime()) / 864e5;
+  return days > BACKUP_EVERY_DAYS ? 'old' : null;
+}

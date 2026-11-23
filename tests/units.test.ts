@@ -159,3 +159,17 @@ test('a drill links to a search for its exercise name only', () => {
   assert.ok(url.startsWith('https://www.youtube.com/results?search_query='));
   assert.ok(!url.includes('heavy'));
 });
+
+// ---- backup reminder ----
+
+import { backupDue } from '../src/store.ts';
+
+test('the backup reminder ignores demo data and waits a month', () => {
+  const real = { ...emptyData(), sessions: [{ id: 'a', date: '2026-01-01', kind: 'shot' as const, headline: 1, metrics: [], tips: [] }] };
+  const now = Date.parse('2026-06-01T00:00:00Z');
+  assert.equal(backupDue(emptyData(), null, now), null);
+  assert.equal(backupDue({ ...emptyData(), sessions: demoData().sessions }, null, now), null);
+  assert.equal(backupDue(real, null, now), 'never');
+  assert.equal(backupDue(real, '2026-05-20T00:00:00Z', now), null);
+  assert.equal(backupDue(real, '2026-04-01T00:00:00Z', now), 'old');
+});

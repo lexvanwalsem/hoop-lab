@@ -10,7 +10,7 @@ import { drillName, exampleUrl, recommend, type Rec } from './coach';
 import { filmingGuide, jumpGuide, type Section } from './guide';
 import { extractPose, type Pose } from './pose';
 import { demoData } from './demo';
-import { exportBackup, importBackup, load, newId, save, sortByDate, today, type Data, type Session } from './store';
+import { exportBackup, importBackup, load, newId, save, sortByDate, today, type Data, type Session, backupDue, lastBackup, markBackup } from './store';
 import { probeVideo, type VideoInfo } from './video';
 import { openFramingCheck } from './camera';
 import { framingPanel, icon, jumpFigure, phaseNames, runFigures, sparkline } from './art';
@@ -369,6 +369,7 @@ function focusAreas(): string {
 let trendSel: 'standing' | 'dunk' | 'shot' | 'vol' = 'standing';
 
 function dashboard(view: HTMLElement): void {
+  const due = backupDue(data, lastBackup());
   const of = (k: Kind): Session[] => data.sessions.filter((s) => s.kind === k);
   const standing = of('standing');
   const best = standing.length ? Math.max(...standing.map((s) => s.headline)) : null;
@@ -437,7 +438,8 @@ function dashboard(view: HTMLElement): void {
       </section>
 
       <section class="section" style="padding-bottom:80px"><div class="section-head rise"><h2>Your data</h2></div>
-        <div class="tile row between rise"><p class="muted">Everything is stored in this browser only, and videos are never kept. Export a backup to move it to another device or keep it safe.</p>
+        ${due ? `<div class="demo-bar rise" role="status"><span class="chip warn">Back up</span><span class="muted small">${due === 'never' ? 'Your results only live on this device. Export a backup so you do not lose them.' : 'Your last backup is more than a month old. Export a new one.'}</span><button class="btn small" id="remindExport">Export backup</button></div>` : ''}
+        <div class="tile row between rise"><p class="muted">Everything is stored in this browser only, and videos are never kept. Export a backup to move it to another device or keep it safe.<br><span class="small" id="storeNote">${lastBackup() ? `Last backup: ${shortDate(lastBackup()!.slice(0, 10))}.` : 'No backup yet.'}</span></p>
           <div class="row"><button class="btn" id="exportData">Export backup</button><button class="btn" id="importData">Import backup</button><button class="btn" id="wipeData">Delete all</button><input type="file" id="importFile" accept="application/json,.json" hidden></div></div>
         <p class="small error" id="dataNote" role="status" style="min-height:1.5em;margin-top:10px"></p>
       </section>
@@ -471,11 +473,20 @@ function dashboard(view: HTMLElement): void {
     save(data);
     void show('dashboard');
   });
-  view.querySelector<HTMLButtonElement>('#exportData')!.onclick = () => {
+  const exportNow = (): void => {
     if (!data.sessions.length && !data.exercises.length) return note('Nothing to export yet.');
     downloadText(`hoop-lab-backup-${today()}.json`, exportBackup(data), 'application/json');
+    markBackup();
     note('Backup downloaded.', true);
+    view.querySelector('#storeNote')!.textContent = `Last backup: ${shortDate(today())}.`;
   };
+  view.querySelector<HTMLButtonElement>('#exportData')!.onclick = exportNow;
+  view.querySelector<HTMLButtonElement>('#remindExport')?.addEventListener('click', exportNow);
+  // tells whether the browser promised not to clear this data when storage runs low
+  void navigator.storage?.persisted?.().then((p) => {
+    const el = view.querySelector('#storeNote');
+    if (el) el.textContent += p ? ' Protected from automatic clearing.' : ' Not protected from automatic clearing: install the app to the home screen and keep a backup.';
+  });
   const importFile = view.querySelector<HTMLInputElement>('#importFile')!;
   view.querySelector<HTMLButtonElement>('#importData')!.onclick = () => importFile.click();
   importFile.onchange = async () => {

@@ -167,7 +167,8 @@ The in-app **Filming** page has the full version with diagrams.
 - **Videos never leave your device.** There is no server, no upload and no account.
 - **Only links leave the app.** The Watch links open a YouTube search, and only when you click them.
 - **Models run locally.** The tracking models and the WebAssembly runtime are served from the app (`public/`), not a CDN.
-- **Data stays in your browser** (`localStorage`). You can export and import a backup file, and delete everything.
+- **Data stays in your browser** (`localStorage`). You can export and import a backup file, and delete everything. The app
+  shows when you last made a backup and reminds you after a month, because a browser can clear its storage.
 - **Honest numbers.** Targets in the app are starting points, the accuracy is stated below, and demo data is always
   labelled.
 - **Tests.** `npm test` checks the calibration, jump and shot detection on synthetic stick-figure clips with known
