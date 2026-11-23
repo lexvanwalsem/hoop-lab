@@ -109,7 +109,7 @@ export function openFramingCheck(opts: { kind?: Kind; onRecorded?: (file: File, 
   };
 
   const paintList = (f: Framing): void => {
-    $('[data-checks]').innerHTML = f.checks.map((c) => `<li class="${c.ok ? 'ok' : c.advisory ? 'adv' : 'no'}">${VERDICT(c.ok)}<span>${c.label}</span></li>`).join('');
+    $('[data-checks]').innerHTML = f.checks.map((c) => `<li class="${c.ok ? 'ok' : c.advisory ? 'adv' : 'no'}">${VERDICT(c.ok)}<span>${c.label}${!c.ok && c.id === 'angle' && c.hint !== 'Step into the frame so the tracker can find you.' ? `<small>${c.hint}</small>` : ''}</span></li>`).join('');
     $('[data-say]').textContent = f.say;
   };
 

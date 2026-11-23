@@ -662,18 +662,20 @@ function fpsNote(info: VideoInfo, kind: Kind): string {
 
 function analyze(view: HTMLElement): void {
   view.innerHTML = `
-    <section class="band"><div class="wrap"><div class="stack rise" style="gap:16px"><div class="kicker">Analyze</div><h1 class="display">Test yourself</h1><p class="sub" style="max-width:520px">Upload a video of a jump or a shot. Body tracking measures it and tells you what to work on.</p></div></div></section>
+    <section class="band"><div class="wrap"><div class="stack rise" style="gap:16px"><div class="kicker">Analyze</div><h1 class="display">Test yourself</h1><p class="sub" style="max-width:520px">Record or upload a video of a jump or a shot. Body tracking measures it and tells you what to work on.</p></div></div></section>
     <div class="wrap">
       <section class="section"><div class="section-head rise"><h2>1. What are you testing?</h2></div>
         <div class="picker rise" id="kinds">${(['standing', 'dunk', 'shot'] as Kind[]).map((k) => `<button class="pick ${k} ${k === selKind ? 'on' : ''}" data-k="${k}" aria-pressed="${k === selKind}">${icon(KIND_ICON[k], 32)}<span><span class="name">${KIND_LABEL[k]}</span><p>${KIND_DESC[k]}</p></span></button>`).join('')}</div></section>
 
-      <section class="section"><div class="section-head rise"><h2>2. Your video and you</h2></div>
+      <section class="section"><div class="section-head rise"><h2>2. Film yourself</h2></div>
+        <ol class="howto rise"><li>Prop your phone up, <b>side-on</b> to you, 4-5 m away.</li><li>Check your framing, then record here or film with your camera app (60 fps is best).</li><li>Your clip loads here. Check your height and weight, then analyze.</li></ol>
+        <p class="why rise" id="why"></p>
         <div class="grid g21">
           <div class="tile stack rise">
-            <label class="dropzone" id="drop" for="file" tabindex="0" role="button">${icon('upload', 32)}<strong>${chosen ? esc(chosen.file.name) : 'Choose a video'}</strong><span class="muted">${chosen ? 'click to choose another' : 'or drop it here'}</span></label>
+            <button class="btn primary big" data-cam>Record with the camera</button>
+            <label class="dropzone" id="drop" for="file" tabindex="0" role="button">${icon('upload', 32)}<strong>${chosen ? esc(chosen.file.name) : 'Choose a video'}</strong><span class="muted">${chosen ? 'click to choose another' : 'one you filmed, or drop it here'}</span></label>
             <input id="file" type="file" accept="video/*" hidden>
             <div id="info" class="chips"></div>
-            <button class="btn small" data-cam>Check my framing first</button>
           </div>
           <div class="tile stack rise">
             <label class="field">Height (cm)<input id="height" type="number" min="120" max="240" value="${data.heightCm || ''}" placeholder="193"></label>
@@ -714,6 +716,9 @@ function analyze(view: HTMLElement): void {
   paint();
 
   const renderInfo = (): void => {
+    $('why').innerHTML = selKind === 'shot'
+      ? '<b>Why side-on?</b> The elbow, the release point and the arc are read from the side. From the front they hide behind each other, so a shot needs a side view.'
+      : '<b>Why side-on?</b> Your knee and hip bend only show from the side. Jump height itself also works from the front, but you get fewer angles.';
     if (!chosen) return;
     const i = chosen.info;
     const mins = Math.max(1, Math.round(estimateSeconds(i, selKind) / 60));

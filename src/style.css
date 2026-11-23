@@ -641,3 +641,18 @@ details.guide > summary::-webkit-details-marker { display: none; }
 .cam-count.rec { inset: 16px auto auto 16px; display: inline-flex; place-items: initial; padding: 6px 14px; border-radius: 99px; background: var(--bad); color: #ffffff; font: 600 15px/1.4 var(--body); text-shadow: none; }
 .cam-checks li.adv svg { color: var(--warn); }
 .cam-checks li.adv { color: #c7c7c9; }
+
+/* the short how-to on the Analyze page and the reason for the side view */
+.howto { margin: 0 0 12px; padding-left: 22px; color: var(--muted); font-size: 15px; }
+.howto li { padding-left: 4px; }
+.howto li + li { margin-top: 4px; }
+.howto b { color: var(--fg); }
+.why { margin: 0 0 16px; padding: 12px 16px; border-left: 3px solid var(--jump); background: var(--surface); border-radius: 0 12px 12px 0; font-size: 14.5px; color: var(--muted); }
+.why b { color: var(--fg); }
+.cam-checks li { align-items: flex-start; }
+.cam-checks li > span { display: flex; flex-direction: column; gap: 2px; }
+.cam-checks small { font-size: 13px; line-height: 1.4; color: #9e9ea0; }
+.cam-checks .verdict { margin-top: -1px; }
+@media (max-width: 700px) { .tile .btn.big { width: 100%; } }
+.cam-panel > * { flex-shrink: 0; }
+@media (max-width: 800px) { .cam-panel { max-height: 52dvh; } }

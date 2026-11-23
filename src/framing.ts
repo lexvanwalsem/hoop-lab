@@ -79,7 +79,7 @@ export function checkFraming(lm: LivePt[] | null, aspect: number, brightness?: n
     id: 'angle',
     label: sideOn === 'required' ? 'Side-on' : 'Side-on (best for joint angles)',
     ok: found && ratio <= MAX_SHOULDER_RATIO,
-    hint: found ? 'Turn so the camera sees your side, not your chest.' : NOBODY,
+    hint: found ? (sideOn === 'required' ? 'Turn so the camera sees your side. A shot is read from the side: from the front the elbow and the arc hide behind each other.' : 'Turn sideways to see your knee and hip bend. Jump height works from the front too.') : NOBODY,
     ...(sideOn === 'advised' ? { advisory: true } : {}),
   });
 
