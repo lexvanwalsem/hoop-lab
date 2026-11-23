@@ -449,7 +449,7 @@ a:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--focus); }
 }
 
 /* ---------- phone and installed app ---------- */
-html { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+html { -webkit-tap-highlight-color: transparent; }
 button, a, input, select, label { touch-action: manipulation; } /* no double-tap zoom delay */
 .wrap { padding-left: max(var(--pad), env(safe-area-inset-left)); padding-right: max(var(--pad), env(safe-area-inset-right)); }
 .pill[data-sug] { padding: 5px 12px; font-size: 13px; }
@@ -468,7 +468,7 @@ button, a, input, select, label { touch-action: manipulation; } /* no double-tap
 @media (max-width: 340px) { .tab span { font-size: 9.5px; } }
 /* narrow phones: the exercise table scrolls inside its tile instead of widening the page, notes wrap */
 @media (max-width: 700px) {
-  table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { display: block; overflow-x: auto; }
   th, td { padding: 12px 6px; }
   td:first-child, td .btn { white-space: nowrap; }
   td .btn { padding: 6px 12px; min-height: 40px; }
@@ -484,7 +484,7 @@ details.guide > summary::-webkit-details-marker { display: none; }
 @media (max-width: 700px) {
   .stats, .recs, .cards, .week, .picker, .fpanel {
     --bleed: var(--pad);
-    display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
+    display: flex; gap: 12px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none;
     margin-left: calc(var(--bleed) * -1); margin-right: calc(var(--bleed) * -1); padding: 0 var(--bleed) 4px; scroll-padding: 0 var(--bleed);
   }
   .tile .cards, .tile .week, .tile .fpanel { --bleed: 20px; }

@@ -70,6 +70,11 @@ function navigate(next: Tab): void {
 }
 
 async function route(): Promise<void> {
+  // safety: the scroll lock belongs to an open sheet or camera view only, never to a normal page
+  if (!document.querySelector('.sheet, .camcheck')) {
+    document.documentElement.classList.remove('sheet-open');
+    app.inert = false;
+  }
   const r = routeFromHash();
   if (r.session) {
     const s = data.sessions.find((x) => x.id === r.session);
