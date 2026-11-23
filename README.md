@@ -55,8 +55,8 @@ finds your joints in every frame, finds each jump or shot in the clip and measur
 - **Progress:** a dashboard with your jump trend, shot score, personal bests, the habits that keep coming back, and an
   exercise log.
 - **Framing check:** a live camera view that tracks your body and tells you what to fix before you film: whole body in
-  frame, big enough with room to jump, side-on (required for a shot, only advised for a jump, whose height works from any
-  angle), enough light. You can record right there with a 5 second countdown, and the clip goes straight into Analyze.
+  frame, big enough with room to jump, turned about 45 degrees (required for a shot, only advised for a jump, whose height works from any
+  angle; fully sideways hides your far arm and leg from the tracker), enough light. You can record right there with a 5 second countdown, and the clip goes straight into Analyze.
   A clip recorded in the browser is often 30 fps and compressed, so for the most exact timing film with your camera app
   at 60 fps or more and choose the file.
 - **Built for the phone:** lists of cards become swipeable rows with dots, guide sections fold open one at a time, and long
@@ -151,13 +151,13 @@ to Files, iCloud or Drive, or mail it to yourself. Import picks the file again f
 ## Filming in short
 
 - Phone on a tripod or something solid. It must not move.
-- Side-on, 4 to 5 m away, camera at hip height, whole body in frame, feet to fingertips, including the top of the jump.
+- Turned about 45 degrees to the camera, 4 to 5 m away, camera at hip height, whole body in frame, feet to fingertips, including the top of the jump.
   Fill at least half of the frame height with your body.
 - 60 fps or more (slow-motion at 120 or 240 fps is fine). On iPhone: Settings, Camera, Record Video, 1080p HD at 60 fps.
-- Stand still for 2 seconds at the start. Good light, a plain background, fitted clothes, shoes visible.
+- Stay on one spot and stand still for 2 seconds at the start. Do not walk towards the camera: the tracker then mistakes the shifting floor for a jump. Good light, a plain background, fitted clothes, shoes visible.
 - Use the same camera spot every time so results are comparable.
 
-The in-app **Filming** page has the full version with diagrams.
+The in-app **Guide** page (tabs Jumping and Shooting) has the full version with diagrams.
 
 ## How it works
 
@@ -227,7 +227,7 @@ npm run build    # type check and production build into dist/
 | `src/video.ts` | Reads the frame rate from the MP4 or MOV header, probes the video |
 | `src/analysis.ts` | Calibration, jump and shot detection, metrics |
 | `src/coach.ts` | Advice and drills per flagged metric |
-| `src/guide.ts` | Content of the Jump higher and Filming pages |
+| `src/guide.ts` | Content of the Guide page |
 | `src/store.ts` | Storage, validation, backup and import |
 | `src/demo.ts` | Sample data for `?demo` |
 | `src/charts.ts`, `src/gauge.ts`, `src/art.ts` | Charts, range gauges, icons and illustrations |

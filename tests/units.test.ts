@@ -117,7 +117,7 @@ test('readFileFps ignores non-video tracks and files without a header', async ()
 import { checkFraming } from '../src/framing.ts';
 
 /** A standing person: head at `top`, feet at `bottom`, shoulders `sw` apart (frame width units). */
-function person(top: number, bottom: number, sw = 0.03): { x: number; y: number; v: number }[] {
+function person(top: number, bottom: number, sw = 0.25): { x: number; y: number; v: number }[] {
   const lm = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, v: 1 }));
   const span = bottom - top;
   lm[0] = { x: 0.5, y: top, v: 1 };
@@ -129,7 +129,7 @@ function person(top: number, bottom: number, sw = 0.03): { x: number; y: number;
   return lm;
 }
 
-test('a well framed side-on person is ready', () => {
+test('a well framed person at 45 degrees is ready', () => {
   const f = checkFraming(person(0.2, 0.88), 9 / 16, 120);
   assert.equal(f.ready, true, f.say);
 });
@@ -137,7 +137,8 @@ test('a well framed side-on person is ready', () => {
 test('the check names what is wrong', () => {
   assert.match(checkFraming(person(0.6, 0.9), 9 / 16, 120).say, /closer|zoom/i); // far away
   assert.match(checkFraming(person(0.02, 0.99), 9 / 16, 120).say, /room|back|lower/i); // too big, no headroom
-  assert.match(checkFraming(person(0.2, 0.88, 0.4), 9 / 16, 120).say, /side/i); // facing the camera
+  assert.match(checkFraming(person(0.2, 0.88, 0.4), 9 / 16, 120).say, /turn a little away/i); // facing the camera
+  assert.match(checkFraming(person(0.2, 0.88, 0.03), 9 / 16, 120).say, /towards the camera/i); // fully sideways
   assert.match(checkFraming(person(0.2, 0.88), 9 / 16, 20).say, /dark|light/i);
   assert.match(checkFraming(null, 9 / 16).say, /step into/i);
 });
@@ -222,7 +223,7 @@ test('broken snapshots are dropped when loading', () => {
   assert.deepEqual(sanitizeSnaps('nope'), []);
 });
 
-test('side-on is required for a shot but only advised for a jump', () => {
+test('the turn is required for a shot but only advised for a jump', () => {
   const front = person(0.2, 0.88, 0.4);
   assert.equal(checkFraming(front, 9 / 16, 120, 'required').ready, false);
   const jump = checkFraming(front, 9 / 16, 120, 'advised');

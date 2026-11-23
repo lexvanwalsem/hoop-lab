@@ -17,12 +17,12 @@ import { installHelp, keepAwake, watchUpdates } from './native';
 import { clearPhotos, deletePhotos, getPhotoUrl, keepPhotos, savePhotos, setKeepPhotos } from './photos';
 import { snapSvg } from './snapview';
 import { buildSnapshots, type Snap } from './snapshots';
-import { framingPanel, icon, jumpFigure, phaseNames, runFigures, sparkline } from './art';
+import { framingPanel, icon, jumpFigure, runFigures, sparkline } from './art';
 import { gauge } from './gauge';
 
 const data: Data = load();
 const app = document.getElementById('app')!;
-type Tab = 'dashboard' | 'analyze' | 'jump' | 'filming' | 'log';
+type Tab = 'dashboard' | 'guide' | 'analyze' | 'log';
 let tab: Tab = 'dashboard';
 let charts: Chart[] = [];
 
@@ -42,29 +42,29 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').match
 
 // ---------- shell, navigation, motion ----------
 
-const TAB_ICON: Record<Tab, string> = { dashboard: 'dashboard', analyze: 'analyze', jump: 'jump', filming: 'camera', log: 'dumbbell' };
+const TAB_ICON: Record<Tab, string> = { dashboard: 'dashboard', guide: 'film', analyze: 'analyze', log: 'dumbbell' };
 let inked = false;
 
 /** Announcement bar, header and tabs are built once, so they never flicker or move when you switch pages. */
 function shell(): void {
-  const tabs: [Tab, string][] = [['dashboard', 'Today'], ['analyze', 'Analyze'], ['jump', 'Jump higher'], ['filming', 'Film tips'], ['log', 'Training']];
-  app.innerHTML = `<div class="announce">Film side-on, 4-5 m away, at 60 fps or more for the most exact numbers.</div>
-    <header><div class="wrap"><a class="brand" href="#dashboard" aria-label="Hoop Lab, home">Hoop Lab<b>.</b></a><nav class="tabs" aria-label="Pages"><i class="tab-ink no-anim"></i>${tabs
+  const tabs: [Tab, string][] = [['dashboard', 'Today'], ['guide', 'Guide'], ['analyze', 'Analyze'], ['log', 'Training']];
+  app.innerHTML = `<header><div class="wrap"><a class="brand" href="#dashboard" aria-label="Hoop Lab, home">Hoop Lab<b>.</b></a><nav class="tabs" aria-label="Pages"><i class="tab-ink no-anim"></i>${tabs
       .map(([id, label]) => `<button class="tab" data-tab="${id}" aria-label="${label}">${icon(TAB_ICON[id], 22)}<span>${label}</span></button>`)
-      .join('')}</nav><div class="head-right"><button class="jobpill" id="jobpill" hidden></button><button class="btn primary head-cta" data-go="analyze">Analyze a video</button></div></div></header>
+      .join('')}</nav><div class="head-right"><button class="jobpill" id="jobpill" hidden></button></div></div></header>
     <div id="view"></div>`;
   app.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => (b.onclick = () => navigate(b.dataset.tab as Tab)));
-  app.querySelectorAll<HTMLButtonElement>('header [data-go], #jobpill').forEach((b) => (b.onclick = () => navigate('analyze')));
+  app.querySelectorAll<HTMLButtonElement>('#jobpill').forEach((b) => (b.onclick = () => navigate('analyze')));
 }
 
 // ---------- routing: every page has an address, so reload, links and the back button work ----------
 
-const TABS: Tab[] = ['dashboard', 'analyze', 'jump', 'filming', 'log'];
+const TABS: Tab[] = ['dashboard', 'guide', 'analyze', 'log'];
+const OLD_TABS: Record<string, Tab> = { jump: 'guide', filming: 'guide' }; // addresses from before the pages were merged
 
 function routeFromHash(): { tab: Tab; session?: string } {
   const h = location.hash.replace(/^#\/?/, '');
   if (h.startsWith('session/')) return { tab: 'dashboard', session: h.slice('session/'.length) };
-  return { tab: (TABS as string[]).includes(h) ? (h as Tab) : 'dashboard' };
+  return { tab: (TABS as string[]).includes(h) ? (h as Tab) : OLD_TABS[h] ?? 'dashboard' };
 }
 
 /** Goes to a page through the address bar, so the browser history records it. */
@@ -205,8 +205,7 @@ async function show(next: Tab, soft = false): Promise<void> {
   ({
     dashboard,
     analyze,
-    jump: () => guidePage(view, 'Jump higher', 'Technique, training and how to read your numbers.', jumpFigure(), jumpGuide, true),
-    filming: () => guidePage(view, 'Film tips', 'Good footage in, good numbers out. This page only explains; you record and analyze on the Analyze tab.', '', filmingGuide, false, framingPanel()),
+    guide,
     log,
   })[tab](view);
   phoneLayout(view);
@@ -488,7 +487,7 @@ function dashboard(view: HTMLElement): void {
 
   view.innerHTML = `
     <section class="band"><div class="wrap">
-      <div class="hero-row rise"><div class="stack" style="gap:16px"><div class="kicker">Today</div><h1 class="display">Ready to jump?</h1></div><button class="btn on-band big" data-go="analyze">Analyze a video</button></div>
+      <div class="hero-row rise"><div class="stack" style="gap:16px"><div class="kicker">Today</div><h1 class="display">Ready to jump?</h1></div></div>
       <div class="stats">
         <div class="stat rise" style="--c:var(--jump)">
           <div class="kicker"><i></i>Jump</div>
@@ -516,7 +515,7 @@ function dashboard(view: HTMLElement): void {
 
     <div class="wrap">
       ${isDemo ? `<div class="demo-bar rise"><span class="chip">Demo data</span><span class="muted small">These numbers are made up. Analyze a video to see your own.</span><button class="btn small" id="clearDemo">Clear demo data</button></div>` : ''}
-      ${data.sessions.length ? '' : `<section class="section rise"><div class="tile"><div class="welcome"><div class="stack"><h2>Start here</h2><p class="muted">Film a jump or a shot, upload it, and get your numbers plus what to work on.</p><div class="row"><button class="btn primary" data-go="analyze">Analyze a video</button><button class="btn" data-go="filming">How to film</button><button class="btn" id="loadDemo">Try with demo data</button></div></div>${jumpFigure()}</div></div></section>`}
+      ${data.sessions.length ? '' : `<section class="section rise"><div class="tile"><div class="welcome"><div class="stack"><h2>Start here</h2><p class="muted">Film a jump or a shot, upload it, and get your numbers plus what to work on.</p><div class="row"><button class="btn primary" data-go="guide">How to film</button><button class="btn" id="loadDemo">Try with demo data</button></div></div>${jumpFigure()}</div></div></section>`}
 
       <section class="section${hide}">
         <div class="section-head rise"><h2>Trend</h2>
@@ -543,7 +542,14 @@ function dashboard(view: HTMLElement): void {
         <p class="small error" id="dataNote" role="status" style="min-height:1.5em;margin-top:10px"></p>
       </section>
       </details>
-    </div>`;
+    </div>
+    <div class="fab"><button class="btn primary big" data-cam>Record</button><button class="btn big" id="fabUpload" type="button">Upload</button><input id="fabFile" type="file" accept="video/*,.mp4,.mov,.m4v,.webm" hidden></div>`;
+  const fabFile = view.querySelector<HTMLInputElement>('#fabFile')!;
+  view.querySelector<HTMLButtonElement>('#fabUpload')!.onclick = () => fabFile.click();
+  fabFile.onchange = () => {
+    const f = fabFile.files?.[0];
+    if (f) recorded(f);
+  };
 
   view.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => (b.onclick = () => navigate(b.dataset.go as Tab)));
   view.querySelectorAll<HTMLButtonElement>('[data-sid]').forEach((b) => (b.onclick = () => (location.hash = `session/${b.dataset.sid}`)));
@@ -647,9 +653,9 @@ let selKind: Kind = 'standing';
 let chosen: { file: File; video: HTMLVideoElement; info: VideoInfo } | null = null;
 
 /** A clip recorded in the framing view: it waits here until the Analyze page can take it. */
-let incoming: { file: File; fps: number } | null = null;
+let incoming: { file: File; fps?: number } | null = null;
 let acceptClip: ((file: File, fps?: number) => void) | null = null;
-function recorded(file: File, fps: number): void {
+function recorded(file: File, fps?: number): void {
   if (tab === 'analyze' && acceptClip) return acceptClip(file, fps);
   incoming = { file, fps };
   navigate('analyze');
@@ -672,7 +678,7 @@ function analyze(view: HTMLElement): void {
         <div class="picker rise" id="kinds">${(['standing', 'dunk', 'shot'] as Kind[]).map((k) => `<button class="pick ${k} ${k === selKind ? 'on' : ''}" data-k="${k}" aria-pressed="${k === selKind}">${icon(KIND_ICON[k], 32)}<span><span class="name">${KIND_LABEL[k]}</span><p>${KIND_DESC[k]}</p></span></button>`).join('')}</div></section>
 
       <section class="section"><div class="section-head rise"><h2>2. Film yourself</h2></div>
-        <ol class="howto rise"><li>Prop your phone up, <b>side-on</b> to you, 4-5 m away.</li><li>Check your framing, then record here or film with your camera app (60 fps is best).</li><li>Your clip loads here. Check your height and weight, then analyze.</li></ol>
+        <ol class="howto rise"><li>Prop your phone up 4-5 m away and stand <b>turned about 45 degrees</b> to it.</li><li>Check your framing, then record here or film with your camera app (60 fps is best).</li><li>Your clip loads here. Check your height and weight, then analyze.</li></ol>
         <p class="why rise" id="why"></p>
         <div class="grid g21">
           <div class="tile stack rise">
@@ -722,8 +728,8 @@ function analyze(view: HTMLElement): void {
 
   const renderInfo = (): void => {
     $('why').innerHTML = selKind === 'shot'
-      ? '<b>Why side-on?</b> The elbow, the release point and the arc are read from the side. From the front they hide behind each other, so a shot needs a side view.'
-      : '<b>Why side-on?</b> Your knee and hip bend only show from the side. Jump height itself also works from the front, but you get fewer angles.';
+      ? '<b>Why 45 degrees?</b> From the side you see your elbow and the arc, but the tracker loses your far arm and leg. From the front the elbow hides. At 45 degrees you get both.'
+      : '<b>Why 45 degrees?</b> Your knee and hip bend show best from the side, but the tracker loses your far leg when you stand fully sideways. At 45 degrees you get both. Jump height itself works from any angle.';
     if (!chosen) return;
     const i = chosen.info;
     const mins = Math.max(1, Math.round(estimateSeconds(i, selKind) / 60));
@@ -913,7 +919,7 @@ function renderResult(out: HTMLElement, video: HTMLVideoElement, pose: Pose, r: 
     <section class="section"><div class="section-head rise"><h2>How to improve</h2></div>
       ${recs.length ? recCards(recs) : '<p class="muted">Nothing flagged. Keep it up and test again in 1-2 weeks.</p>'}
       ${r.tips.length ? `<p class="muted small" style="margin-top:16px"><b>Notes:</b> ${r.tips.map(esc).join(' ')}</p>` : ''}
-      ${isShot ? '' : '<div style="margin-top:20px"><button class="btn" data-go="jump">Open the Jump higher guide</button></div>'}
+      ${isShot ? '' : '<div style="margin-top:20px"><button class="btn" data-go="guide">Open the guide</button></div>'}
     </section>`;
 
   out.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => (b.onclick = () => navigate(b.dataset.go as Tab)));
@@ -964,7 +970,22 @@ function renderResult(out: HTMLElement, video: HTMLVideoElement, pose: Pose, r: 
 
 // ---------- guides ----------
 
-function guidePage(view: HTMLElement, title: string, subtitle: string, art: string, sections: Section[], phases: boolean, lead = ''): void {
+let guideSel: 'jump' | 'shot' = 'jump';
+
+/** One guide with two tabs: jumping and shooting. The set-up of the camera is shared. */
+function guide(view: HTMLElement): void {
+  const [setup, standing, dunk, shot] = filmingGuide;
+  const sections = guideSel === 'jump' ? [setup, standing, dunk, ...jumpGuide] : [setup, shot];
+  const tabs = [['jump', 'Jumping'], ['shot', 'Shooting']] as const;
+  const seg = `<div class="pills guide-seg rise" role="group" aria-label="Guide">${tabs.map(([k, l]) => `<button class="pill ${k === guideSel ? 'on' : ''}" data-g="${k}" aria-pressed="${k === guideSel}">${l}</button>`).join('')}</div>`;
+  guidePage(view, 'Guide', guideSel === 'jump' ? 'How to film a jump, and how to jump higher.' : 'How to film a shot so the tracker reads it well.', seg, sections, framingPanel());
+  view.querySelectorAll<HTMLButtonElement>('[data-g]').forEach((b) => (b.onclick = () => {
+    guideSel = b.dataset.g as typeof guideSel;
+    void show('guide', true);
+  }));
+}
+
+function guidePage(view: HTMLElement, title: string, subtitle: string, seg: string, sections: Section[], lead = ''): void {
   const legend = [['strength', 'Strength', 'var(--jump)'], ['speed', 'Speed', 'var(--fg)'], ['plyo', 'Plyometrics', 'var(--shot)'], ['rest', 'Rest', 'var(--border)']];
   const body = (s: Section): string => {
     if (s.layout === 'steps') {
@@ -976,7 +997,7 @@ function guidePage(view: HTMLElement, title: string, subtitle: string, art: stri
     return `<div class="cards">${s.items.map((it) => `<div class="cardi"><div class="bub">${icon(it.icon ?? 'check', 24)}</div><h3>${esc(it.t)}</h3><p>${esc(it.d)}</p></div>`).join('')}</div>`;
   };
   view.innerHTML = `
-    <section class="band guide-band${art ? '' : ' plain'}">${art}<div class="wrap"><div class="kicker rise">Guide</div><h1 class="display rise">${esc(title)}</h1><p class="rise">${esc(subtitle)}</p>${phases ? `<div class="phases rise">${phaseNames.map((n) => `<span>${n}</span>`).join('')}</div>` : ''}</div></section>
+    <section class="band guide-band plain"><div class="wrap"><h1 class="display rise">${esc(title)}</h1><p class="rise">${esc(subtitle)}</p>${seg}</div></section>
     <div class="wrap"><div class="section guide-grid" style="padding-bottom:80px">
       ${lead ? `<section class="tile lead rise"><h2>What the camera should see</h2>${lead}<div style="margin-top:16px"><button class="btn" data-cam>Check my framing with the camera</button></div></section>` : ''}
       ${sections

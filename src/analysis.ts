@@ -197,8 +197,19 @@ export function analyzeJumps(pose: Pose, heightCm: number, kind: 'standing' | 'd
   let flights = findFlights(pose, calibrate(pose, heightCm)).filter((f) => f.peak >= 20); // ignore steps and small hops
   if (!flights.length) throw new Error('No jump found. Check the filming guide.');
   if (kind === 'dunk') flights = [flights.reduce((a, b) => (b.peak > a.peak ? b : a))];
-  return flights.map((fl) => jumpResult(pose, fl, calibrate(pose, heightCm, fl.takeoff - 4 * pose.fps, fl.takeoff), kind, weightKg));
+  const results = flights.map((fl) => jumpResult(pose, fl, calibrate(pose, heightCm, fl.takeoff - 4 * pose.fps, fl.takeoff), kind, weightKg));
+  // A real jump lifts the hips too. Feet that seem to leave the floor while the hips stay put are a floor that shifts in the
+  // picture (walking towards the camera, a tilted phone), and a flight longer than 0.9 s is not a human jump.
+  const clean = results.filter((r) => {
+    const rise = metricValue(r, 'Jump height (hip');
+    const hang = metricValue(r, 'Jump height (flight');
+    return kind === 'dunk' ? rise >= 15 : hang <= 110 && rise >= 0.4 * hang;
+  });
+  if (!clean.length) throw new Error('No clean jump found. The tracker saw feet leave the floor, but your hips did not rise with them. Stay on one spot, turn about 45 degrees to the camera and jump again.');
+  return clean;
 }
+
+const metricValue = (r: Result, label: string): number => parseFloat(r.metrics.find((m) => m.label.startsWith(label))?.value ?? '0');
 
 /** Single jump: the highest one in the clip. */
 export function analyzeJump(pose: Pose, heightCm: number, kind: 'standing' | 'dunk', weightKg?: number): Result {

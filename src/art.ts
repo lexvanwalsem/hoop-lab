@@ -247,7 +247,7 @@ export function framingPanel(): string {
     ${framingCell(false, far, 'Too far', 'The figure is small, so joint angles get noisy.')}
     ${framingCell(false, cut, 'Cut off', 'Feet or hands leave the frame, so they cannot be measured.')}
     ${framingCell(true, good, 'Just right', 'The whole body in frame, at least half of the height.')}
-    <figure class="fcell top">${cameraDiagram(true)}<figcaption><span><b>Side-on, 4-5 m</b>Phone at hip height on a tripod, pointing at your side.</span></figcaption></figure>
+    <figure class="fcell top">${cameraDiagram(true)}<figcaption><span><b>Turned 45 degrees, 4-5 m</b>Phone at hip height on a tripod. Turn about 45 degrees to it.</span></figcaption></figure>
   </div>`;
 }
 

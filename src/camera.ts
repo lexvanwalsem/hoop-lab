@@ -14,7 +14,7 @@ const NO_CAMERA = 'This browser cannot open the camera here. Camera access needs
 /** Full-screen live view with a checklist: is the person framed the way the analysis needs? Nothing is recorded or sent anywhere. */
 /** `kind` decides how much the side view matters. `onRecorded` receives a clip recorded here, with the frame rate the camera reported. */
 export function openFramingCheck(opts: { kind?: Kind; onRecorded?: (file: File, fps: number) => void } = {}): void {
-  const sideOn = opts.kind === 'shot' ? 'required' : 'advised';
+  const turn = opts.kind === 'shot' ? 'required' : 'advised';
   if (document.querySelector('.camcheck')) return;
   const opener = document.activeElement as HTMLElement | null;
   const root = document.createElement('div');
@@ -159,7 +159,7 @@ export function openFramingCheck(opts: { kind?: Kind; onRecorded?: (file: File, 
       lastLight = now;
     }
     const lm = pose.detect(video);
-    const f = settled(checkFraming(lm, video.videoWidth / video.videoHeight, light, sideOn));
+    const f = settled(checkFraming(lm, video.videoWidth / video.videoHeight, light, turn));
     draw(lm, f.ready);
     paintList(f);
   };

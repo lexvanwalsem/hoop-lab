@@ -357,8 +357,8 @@ td b { font-weight: 600; }
 .scroll-target { scroll-margin-top: 80px; }
 
 
-.hero-row .btn { display: none; }
-@media (max-width: 700px) { .hero-row .btn { display: inline-flex; } }
+
+
 
 
 .tile input { background: var(--bg); }
@@ -662,3 +662,31 @@ details.guide > summary::-webkit-details-marker { display: none; }
 button, .tabs, .pick, .btn, summary, .chip { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .toast { position: fixed; left: 16px; right: 16px; bottom: calc(var(--tabbar, 56px) + 12px); z-index: 60; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px 10px 16px; border-radius: var(--radius-card); background: var(--fg); color: var(--bg); box-shadow: 0 4px 24px rgb(0 0 0 / 0.25); }
 @media (min-width: 640px) { .toast { left: auto; right: 24px; bottom: 24px; max-width: 360px; } }
+
+/* ---------- floating Record and Upload on the dashboard ---------- */
+.fab { position: fixed; z-index: 40; right: 24px; bottom: 24px; display: flex; gap: 10px; pointer-events: none; }
+.fab .btn { pointer-events: auto; box-shadow: 0 6px 24px rgb(0 0 0 / 0.28); }
+@media (max-width: 700px) {
+  .fab { left: var(--pad); right: var(--pad); bottom: calc(var(--tabbar) + 12px); }
+  .fab .btn { flex: 1; }
+  #view:has(.fab) { padding-bottom: 76px; }
+}
+
+/* ---------- phone: everything centred ---------- */
+@media (max-width: 700px) {
+  .band .wrap, .section-head, .stat, .metric, .pick, .tile > h2, .welcome, .hero-row, .tile.busy, .cardi, .day, .snap, .guide > summary { text-align: center; }
+  .section-head, .hero-row, .chips, .row, .pills, .week-dots, .phases { justify-content: center; }
+  .stat .kicker, .stat .pb { justify-content: center; }
+  .stat .meter { margin-inline: auto; }
+  .guide-seg { margin-top: 16px; }
+  .step, .howto, .why, .check { text-align: left; }
+  .tile.row.between { flex-direction: column; text-align: center; }
+}
+.band .pill { border-color: rgb(255 255 255 / 0.4); color: #fff; }
+.band .pill:hover { border-color: #fff; }
+.band .pill.on { border-color: #fff; background: #fff; color: #111; }
+.fab .btn.big { min-height: 48px; padding: 0 28px; font-size: 16px; }
+@media (max-width: 700px) {
+  .kicker, .hero-row .stack { text-align: center; justify-content: center; align-items: center; }
+}
+@media (max-width: 700px) { .demo-bar { justify-content: center; text-align: center; } }

@@ -22,7 +22,7 @@ export const filmingGuide: Section[] = [
       { icon: 'camera', t: 'Fix the phone', d: 'Use a tripod or lean it on something solid. It must not move at all.' },
       { icon: 'film', t: 'Landscape or portrait', d: 'Either works. Keep the whole body in frame, feet to fingertips, including the top of the jump.' },
       { icon: 'ruler', t: 'Distance and height', d: 'Stand 4-5 m away with the camera at hip height. Fill at least half of the frame height with your body: a small figure makes joint angles noisy.' },
-      { icon: 'target', t: 'Angle', d: 'Side-on is best. Front or diagonal still works for jump height, and for joint angles through 3D tracking, but less accurately.' },
+      { icon: 'target', t: 'Angle', d: 'Stand turned about 45 degrees to the camera. Fully sideways hides your far arm and leg from the tracker, and from the front your knee and elbow bend do not show. Jump height works from any angle.' },
       { icon: 'clock', t: 'Frame rate', d: 'Film at 60 fps or more (slo-mo at 120 or 240 fps is fine). The app reads the frame rate from the file by itself. At 30 fps the jump height is fine but shot timing is coarse (33 ms per frame).' },
       { icon: 'camera', t: 'iPhone', d: 'Settings, Camera, Record Video: choose 1080p HD at 60 fps. Do not edit and re-export the video at a lower frame rate.' },
       { icon: 'sun', t: 'Light and clothing', d: 'Good light, a plain background and fitted clothes that contrast with the background. Shoes visible.' },
@@ -33,7 +33,7 @@ export const filmingGuide: Section[] = [
     title: 'Standing jump',
     layout: 'steps',
     items: [
-      { icon: 'user', t: 'Start still', d: 'Stand upright and still for 2 seconds, feet shoulder-width apart.' },
+      { icon: 'user', t: 'Start still', d: 'Stand upright and still for 2 seconds, on one spot, feet shoulder-width apart. Do not walk towards the camera before or after: stay put and let the clip run.' },
       { icon: 'jump', t: 'Jump', d: 'Jump as high as you can with a countermovement and arm swing.' },
       { icon: 'landing', t: 'Land and reset', d: 'Land on the same spot, stand still a second. You can do several jumps in one clip, the app finds each one.' },
     ],
@@ -42,7 +42,7 @@ export const filmingGuide: Section[] = [
     title: 'Dunk approach jump',
     layout: 'steps',
     items: [
-      { icon: 'camera', t: 'Camera', d: 'Side-on to the run-up, far enough away (5-7 m) to keep the whole run and jump in frame.' },
+      { icon: 'camera', t: 'Camera', d: 'Far enough away (5-7 m) to keep the whole run and jump in frame, with the run-up crossing the picture at about 45 degrees.' },
       { icon: 'bolt', t: 'Run and jump', d: 'Stand still for 2 seconds at the start, then run up and jump as you would for a dunk.' },
       { icon: 'target', t: 'Rim', d: 'The rim is assumed to be 305 cm. It helps to have it in frame, but it is not needed.' },
       { icon: 'check', t: 'One attempt per video', d: 'Keep your whole body in frame until you have landed.' },
@@ -52,7 +52,7 @@ export const filmingGuide: Section[] = [
     title: 'Jump shot',
     layout: 'steps',
     items: [
-      { icon: 'camera', t: 'Camera', d: 'Side-on to your shooting arm, 4-5 m away, so your shooting side faces the camera. Include the ball path up to the top of the arc.' },
+      { icon: 'camera', t: 'Camera', d: '4-5 m away, turned about 45 degrees so your shooting arm is the one nearest to the camera. Include the ball path up to the top of the arc.' },
       { icon: 'ball', t: 'Take the shot', d: 'Stand still for 2 seconds, then shoot. Hold the follow-through until the ball lands. Several shots in one clip are fine, leave at least 2 seconds between them.' },
       { icon: 'target', t: 'Ball', d: 'A ball that contrasts with the background is tracked better. A clear ball gives an exact release and launch angle.' },
     ],

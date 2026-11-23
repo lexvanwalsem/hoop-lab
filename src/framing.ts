@@ -34,7 +34,10 @@ const MIN_FILL = 0.5; // the body should fill at least half of the frame height
 const MAX_FILL = 0.8; // more than this leaves no room above the head to jump
 const BODY_PER_SPAN = 0.89; // nose to ankle is about 89% of body height, same as the calibration
 const MIN_HEADROOM = 0.1;
-const MAX_SHOULDER_RATIO = 0.55; // shoulder width over torso length: about 0.3 side-on, 0.9 from the front
+// shoulder width over torso length: about 0.1 to 0.2 fully sideways, 0.6 at 45 degrees, 0.9 from the front.
+// Fully sideways hides the far arm and leg from the tracker, so 45 degrees is what to aim for.
+const MIN_SHOULDER_RATIO = 0.3;
+const MAX_SHOULDER_RATIO = 0.8;
 const MIN_BRIGHTNESS = 70; // 0..255
 
 const inside = (p: LivePt): boolean => p.v >= VISIBLE && p.x > MARGIN && p.x < 1 - MARGIN && p.y > MARGIN && p.y < 1 - MARGIN;
@@ -42,10 +45,10 @@ const mid = (a: LivePt, b: LivePt): { x: number; y: number } => ({ x: (a.x + b.x
 
 /** `lm` are the 33 pose landmarks of one frame (or null when nobody was found). `brightness` is the mean luma of the frame, if known. */
 /**
- * `sideOn` says how much the side view matters: a shot needs it (the arc and the elbow are read from the side), a jump
- * does not (its height comes from flight time and works from any angle), but joint angles are better from the side.
+ * `angle` says how much the turn matters: a shot needs about 45 degrees (the elbow and the arc must show, and both arms must stay
+ * visible), a jump does not (its height comes from flight time and works from any angle), but joint angles are better at 45 degrees.
  */
-export function checkFraming(lm: LivePt[] | null, aspect: number, brightness?: number, sideOn: 'required' | 'advised' = 'required'): Framing {
+export function checkFraming(lm: LivePt[] | null, aspect: number, brightness?: number, angle: 'required' | 'advised' = 'required'): Framing {
   const checks: Check[] = [];
   const found = !!lm && lm.length >= 33;
 
@@ -77,10 +80,10 @@ export function checkFraming(lm: LivePt[] | null, aspect: number, brightness?: n
   }
   checks.push({
     id: 'angle',
-    label: sideOn === 'required' ? 'Side-on' : 'Side-on (best for joint angles)',
-    ok: found && ratio <= MAX_SHOULDER_RATIO,
-    hint: found ? (sideOn === 'required' ? 'Turn so the camera sees your side. A shot is read from the side: from the front the elbow and the arc hide behind each other.' : 'Turn sideways to see your knee and hip bend. Jump height works from the front too.') : NOBODY,
-    ...(sideOn === 'advised' ? { advisory: true } : {}),
+    label: angle === 'required' ? 'Turned 45 degrees' : 'Turned 45 degrees (best for joint angles)',
+    ok: found && ratio >= MIN_SHOULDER_RATIO && ratio <= MAX_SHOULDER_RATIO,
+    hint: !found ? NOBODY : ratio > MAX_SHOULDER_RATIO ? 'Turn a little away from the camera, to about 45 degrees. Then your knee and elbow bend show and the tracker still sees both sides of you.' : 'Turn a little towards the camera, to about 45 degrees. Fully sideways hides your far arm and leg from the tracker.',
+    ...(angle === 'advised' ? { advisory: true } : {}),
   });
 
   if (brightness !== undefined) {
@@ -92,6 +95,6 @@ export function checkFraming(lm: LivePt[] | null, aspect: number, brightness?: n
   return {
     checks,
     ready: !first,
-    say: first ? first.hint : tip && found ? 'Good to go. Facing the side would give better joint angles, but the jump height works from here.' : 'Looks good. You can record now, or film with your camera app at 60 fps.',
+    say: first ? first.hint : tip && found ? 'Good to go. Turning to about 45 degrees would give better joint angles, but the jump height works from here.' : 'Looks good. You can record now, or film with your camera app at 60 fps.',
   };
 }

@@ -73,6 +73,24 @@ check('standing: headline = flight time (cm)', standing.headline, 40, 6);
 check('standing: flight-time height (cm)', metric(standing, 'Jump height (flight'), 40, 6);
 check('standing: dip (cm)', metric(standing, 'Countermovement'), 30, 5);
 
+// feet that lift while the hips stay put (a shifting floor, not a jump) must be refused
+{
+  const fake = buildPose({ jumpCm: 40, dipCm: 0, runSpeed: 0 });
+  const hipY = fake.frames[0][23].y;
+  for (const lm of fake.frames) {
+    lm[23] = { ...lm[23], y: hipY };
+    lm[24] = { ...lm[24], y: hipY };
+  }
+  let refused = false;
+  try {
+    analyzeJumps(fake, BODY_CM, 'standing');
+  } catch {
+    refused = true;
+  }
+  console.log(`${refused ? 'PASS' : 'FAIL'}  feet up but hips still is not a jump`);
+  if (!refused) failed++;
+}
+
 const dunk = analyzeJump(buildPose({ jumpCm: 60, dipCm: 15, runSpeed: 5 }), BODY_CM, 'dunk');
 check('dunk: hip rise (cm)', dunk.headline, 60, 6);
 check('dunk: approach speed (m/s)', metric(dunk, 'Approach'), 5, 1);
