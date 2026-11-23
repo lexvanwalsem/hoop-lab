@@ -330,7 +330,7 @@ td b { font-weight: 600; }
   .tab .ico { display: block; }
   .tab.active { font-weight: 600; }
   .tab-ink { top: -1px; bottom: auto; }
-  body { padding-bottom: 76px; }
+  body { padding-bottom: calc(var(--tabbar) + 24px); }
   .band .wrap { padding-top: 40px; padding-bottom: 48px; }
   .srow { grid-template-columns: 84px 1fr 20px; }
   .srow .chips { display: none; }
@@ -528,4 +528,12 @@ details.guide > summary::-webkit-details-marker { display: none; }
   .fold[open] > summary::after { transform: rotate(-135deg); }
   .fold[open] > summary { margin-bottom: 8px; }
   .fold .section { padding-top: 24px; }
+}
+
+/* the fixed bottom bar: its height (tabs plus the phone's home-indicator area) is reserved at the end of every page */
+:root { --tabbar: calc(56px + env(safe-area-inset-bottom, 0px)); }
+@media (max-width: 700px) {
+  html { scroll-padding-bottom: calc(var(--tabbar) + 16px); }
+  .tab { min-height: 56px; }
+  .tabs { min-height: var(--tabbar); }
 }
