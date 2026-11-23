@@ -46,7 +46,7 @@ let inked = false;
 
 /** Announcement bar, header and tabs are built once, so they never flicker or move when you switch pages. */
 function shell(): void {
-  const tabs: [Tab, string][] = [['dashboard', 'Today'], ['analyze', 'Analyze'], ['jump', 'Jump higher'], ['filming', 'Filming'], ['log', 'Training']];
+  const tabs: [Tab, string][] = [['dashboard', 'Today'], ['analyze', 'Analyze'], ['jump', 'Jump higher'], ['filming', 'Film tips'], ['log', 'Training']];
   app.innerHTML = `<div class="announce">Film side-on, 4-5 m away, at 60 fps or more for the most exact numbers.</div>
     <header><div class="wrap"><a class="brand" href="#dashboard" aria-label="Hoop Lab, home">Hoop Lab<b>.</b></a><nav class="tabs" aria-label="Pages"><i class="tab-ink no-anim"></i>${tabs
       .map(([id, label]) => `<button class="tab" data-tab="${id}" aria-label="${label}">${icon(TAB_ICON[id], 22)}<span>${label}</span></button>`)
@@ -205,7 +205,7 @@ async function show(next: Tab, soft = false): Promise<void> {
     dashboard,
     analyze,
     jump: () => guidePage(view, 'Jump higher', 'Technique, training and how to read your numbers.', jumpFigure(), jumpGuide, true),
-    filming: () => guidePage(view, 'Filming', 'Good footage in, good numbers out.', '', filmingGuide, false, framingPanel()),
+    filming: () => guidePage(view, 'Film tips', 'Good footage in, good numbers out. This page only explains; you record and analyze on the Analyze tab.', '', filmingGuide, false, framingPanel()),
     log,
   })[tab](view);
   phoneLayout(view);
@@ -673,8 +673,9 @@ function analyze(view: HTMLElement): void {
         <div class="grid g21">
           <div class="tile stack rise">
             <button class="btn primary big" data-cam>Record with the camera</button>
-            <label class="dropzone" id="drop" for="file" tabindex="0" role="button">${icon('upload', 32)}<strong>${chosen ? esc(chosen.file.name) : 'Choose a video'}</strong><span class="muted">${chosen ? 'click to choose another' : 'one you filmed, or drop it here'}</span></label>
-            <input id="file" type="file" accept="video/*" hidden>
+            <button class="btn big" id="drop" type="button">${chosen ? 'Choose another video' : 'Choose a video'}</button>
+            <p class="muted small">Pick a clip from your camera roll or your files.</p>
+            <input id="file" type="file" accept="video/*,.mp4,.mov,.m4v,.webm" hidden>
             <div id="info" class="chips"></div>
           </div>
           <div class="tile stack rise">
@@ -722,7 +723,7 @@ function analyze(view: HTMLElement): void {
     if (!chosen) return;
     const i = chosen.info;
     const mins = Math.max(1, Math.round(estimateSeconds(i, selKind) / 60));
-    $('info').innerHTML = `<span class="chip">${i.width}x${i.height}</span><span class="chip">${i.duration.toFixed(1)} s</span>${fpsNote(i, selKind)}<span class="chip">about ${mins} min to analyze</span>`;
+    $('info').innerHTML = `<span class="chip good">${esc(chosen.file.name)}</span><span class="chip">${i.width}x${i.height}</span><span class="chip">${i.duration.toFixed(1)} s</span>${fpsNote(i, selKind)}<span class="chip">about ${mins} min to analyze</span>`;
   };
   renderInfo();
 
@@ -750,7 +751,7 @@ function analyze(view: HTMLElement): void {
       job.status = 'Ready. Check your height and weight, then analyze.';
       shown = null;
       $('out').innerHTML = '';
-      $('drop').innerHTML = `${icon('upload', 32)}<strong>${esc(file.name)}</strong><span class="muted">click to choose another</span>`;
+      $('drop').textContent = 'Choose another video';
       renderInfo();
     } catch (e) {
       job.failed = true;
@@ -769,12 +770,7 @@ function analyze(view: HTMLElement): void {
     if (f) void take(f);
   };
   const drop = $('drop');
-  drop.onkeydown = (ev) => {
-    if (ev.key === 'Enter' || ev.key === ' ') {
-      ev.preventDefault();
-      $<HTMLInputElement>('file').click();
-    }
-  };
+  drop.onclick = () => $<HTMLInputElement>('file').click();
   drop.ondragover = (ev) => { ev.preventDefault(); drop.classList.add('over'); };
   drop.ondragleave = () => drop.classList.remove('over');
   drop.ondrop = (ev) => {
