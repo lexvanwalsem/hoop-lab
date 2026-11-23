@@ -656,3 +656,9 @@ details.guide > summary::-webkit-details-marker { display: none; }
 @media (max-width: 700px) { .tile .btn.big { width: 100%; } }
 .cam-panel > * { flex-shrink: 0; }
 @media (max-width: 800px) { .cam-panel { max-height: 52dvh; } }
+
+/* ---------- app feel ---------- */
+/* the interface is not text to select; results, notes and inputs still are */
+button, .tabs, .pick, .btn, summary, .chip { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.toast { position: fixed; left: 16px; right: 16px; bottom: calc(var(--tabbar, 56px) + 12px); z-index: 60; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px 10px 16px; border-radius: var(--radius-card); background: var(--fg); color: var(--bg); box-shadow: 0 4px 24px rgb(0 0 0 / 0.25); }
+@media (min-width: 640px) { .toast { left: auto; right: 24px; bottom: 24px; max-width: 360px; } }

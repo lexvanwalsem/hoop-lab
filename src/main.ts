@@ -13,6 +13,7 @@ import { demoData } from './demo';
 import { exportBackup, importBackup, load, newId, save, sortByDate, today, type Data, type Session, backupDue, lastBackup, markBackup } from './store';
 import { probeVideo, type VideoInfo } from './video';
 import { openFramingCheck } from './camera';
+import { installHelp, keepAwake, watchUpdates } from './native';
 import { clearPhotos, deletePhotos, getPhotoUrl, keepPhotos, savePhotos, setKeepPhotos } from './photos';
 import { snapSvg } from './snapview';
 import { buildSnapshots, type Snap } from './snapshots';
@@ -534,6 +535,7 @@ function dashboard(view: HTMLElement): void {
         <div class="tile row between rise"><p class="muted">Set a target for your standing jump. The Jump meter fills towards it.</p><div class="row"><div style="width:140px"><input id="goal" type="number" min="10" max="200" placeholder="Goal in cm" value="${goal || ''}" aria-label="Jump goal in centimetres"></div><button class="btn primary" id="setGoal">${goal ? 'Update goal' : 'Set goal'}</button></div></div>
       </section>
 
+      ${installSection()}
       <section class="section" style="padding-bottom:80px"><div class="section-head rise"><h2>Your data</h2></div>
         ${due ? `<div class="demo-bar rise" role="status"><span class="chip warn">Back up</span><span class="muted small">${due === 'never' ? 'Your results only live on this device. Export a backup so you do not lose them.' : 'Your last backup is more than a month old. Export a new one.'}</span><button class="btn small" id="remindExport">Export backup</button></div>` : ''}
         <div class="tile row between rise"><p class="muted">Everything is stored in this browser only, and videos are never kept. Export a backup to move it to another device or keep it safe.<br><span class="small" id="storeNote">${lastBackup() ? `Last backup: ${shortDate(lastBackup()!.slice(0, 10))}.` : 'No backup yet.'}</span></p>
@@ -545,6 +547,8 @@ function dashboard(view: HTMLElement): void {
 
   view.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => (b.onclick = () => navigate(b.dataset.go as Tab)));
   view.querySelectorAll<HTMLButtonElement>('[data-sid]').forEach((b) => (b.onclick = () => (location.hash = `session/${b.dataset.sid}`)));
+  const installBtn = view.querySelector<HTMLButtonElement>('#installBtn');
+  if (installBtn) installBtn.onclick = () => installHelp()?.action?.();
   view.querySelector<HTMLButtonElement>('#setGoal')!.onclick = () => {
     data.goalCm = Number(view.querySelector<HTMLInputElement>('#goal')!.value) || 0;
     save(data);
@@ -801,6 +805,7 @@ function analyze(view: HTMLElement): void {
     const kind = selKind;
     const started = performance.now();
     job.running = true;
+    keepAwake(true);
     job.failed = false;
     job.progress = 0;
     job.results = null;
@@ -840,6 +845,7 @@ function analyze(view: HTMLElement): void {
       job.status = cancelled ? 'Cancelled.' : e instanceof Error ? e.message : String(e);
     } finally {
       job.running = false;
+      keepAwake(false);
       job.controller = null;
       jobChanged();
     }
@@ -1059,6 +1065,13 @@ document.addEventListener('click', (e) => {
 // Offline support and durable storage. Only in the production build: during development a cache gets in the way.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => void navigator.serviceWorker.register('./sw.js').catch(() => undefined));
+  watchUpdates();
+}
+
+function installSection(): string {
+  const h = installHelp();
+  if (!h) return '';
+  return `<section class="section"><div class="section-head rise"><h2>Install</h2></div><div class="tile row between rise"><p class="muted">${h.text}</p>${h.action ? `<button class="btn primary" id="installBtn">${h.label}</button>` : ''}</div></section>`;
 }
 // asks the browser not to evict results when storage is tight (iOS Safari clears idle sites otherwise)
 void navigator.storage?.persist?.().catch(() => undefined);

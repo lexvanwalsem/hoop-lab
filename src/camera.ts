@@ -2,6 +2,7 @@ import { VERDICT } from './art';
 import type { Kind } from './analysis';
 import { checkFraming, type Check, type Framing } from './framing';
 import { createLivePose } from './pose';
+import { keepAwake } from './native';
 
 /** The pose landmark pairs that make up the drawn skeleton. */
 const BONES: [number, number][] = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28], [27, 31], [28, 32]];
@@ -67,6 +68,7 @@ export function openFramingCheck(opts: { kind?: Kind; onRecorded?: (file: File, 
   };
   const close = (): void => {
     closed = true;
+    keepAwake(false);
     cancelAnimationFrame(raf);
     clearInterval(countdown);
     if (recorder && recorder.state !== 'inactive') {
@@ -81,6 +83,7 @@ export function openFramingCheck(opts: { kind?: Kind; onRecorded?: (file: File, 
     opener?.focus?.();
   };
   document.addEventListener('keydown', onKey);
+  keepAwake(true);
   $('[data-close]').onclick = close;
   $<HTMLButtonElement>('[data-close]').focus();
 
