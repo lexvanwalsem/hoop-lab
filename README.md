@@ -62,6 +62,7 @@ finds your joints in every frame, finds each jump or shot in the clip and measur
 - **Built for the phone:** lists of cards become swipeable rows with dots, guide sections fold open one at a time, and long
   tables show the latest rows first, so there is no endless scrolling.
 - **Correct it by hand:** the takeoff and landing are found automatically; if they are off, adjust them frame by frame and the result and dashboard update. A clip the tracker cannot follow can be measured entirely by hand from the flight time.
+- **Your own scale:** drag two lines on a frame where you stand tall, from the top of your head to your soles. The app learns your nose-to-ankle proportion and uses it for every analysis, instead of the average.
 - **Phone tilt:** a phone that leans sideways is turned back automatically, and the framing check reads the phone's own tilt sensor and warns when it is tipped up or down.
 - **Guides:** how to film so the numbers are good, and how to jump higher (technique, training, a simple week).
 

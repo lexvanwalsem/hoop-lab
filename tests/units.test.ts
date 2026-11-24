@@ -252,3 +252,12 @@ test('a tipped phone is flagged but does not block recording', () => {
   assert.match(tipped.say, /tilted 20 degrees/);
   assert.match(checkFraming(person(0.2, 0.88), 9 / 16, 120, 'advised', { pitch: 1, roll: 12 }).say, /leans 12 degrees/);
 });
+
+// ---- scale from two drawn lines ----
+
+import { scaleRatio } from '../src/analysis.ts';
+
+test('the scale ratio is nose-to-ankle over the drawn height', () => {
+  // head line at 100 px, sole at 1100 px (1000 px tall), nose at 190 px, ankles at 1060 px: 870 / 1000
+  assert.ok(Math.abs(scaleRatio(190, 1060, 100, 1100) - 0.87) < 1e-9);
+});

@@ -5,10 +5,10 @@ import '@fontsource/barlow-condensed/700.css';
 import type { Chart } from 'chart.js';
 import './style.css';
 import { shortDate, trendChart, volumeChart, type Series } from './charts';
-import { analyzeJumps, analyzeShots, levelPose, manualJump, type Kind, type Metric, type Result } from './analysis';
+import { analyzeJumps, analyzeShots, AVERAGE_NOSE_ANKLE, levelPose, manualJump, scaleRatio, type Kind, type Metric, type Result } from './analysis';
 import { drillName, exampleUrl, recommend, type Rec } from './coach';
 import { filmingGuide, jumpGuide, measuring, setups, type Section } from './guide';
-import { extractPose, type Pose } from './pose';
+import { createLivePose, extractPose, type Pose } from './pose';
 import { demoData } from './demo';
 import { exportBackup, importBackup, load, newId, save, sortByDate, today, type Data, type Session, backupDue, lastBackup, markBackup } from './store';
 import { probeVideo, type VideoInfo } from './video';
@@ -702,6 +702,8 @@ function analyze(view: HTMLElement): void {
             <label class="field">Height (cm)<input id="height" type="number" min="120" max="240" value="${data.heightCm || ''}" placeholder="193"></label>
             <label class="field">Weight (kg)<input id="weight" type="number" min="30" max="200" value="${data.weightKg || ''}" placeholder="95"></label>
             <p class="muted small">They set the scale and the power estimate, so use your real values.</p>
+            <p class="muted small" id="scaleNote"></p>
+            <button class="btn small" id="calBtn" type="button" hidden>Set my scale from the video</button>
             <label class="check"><input type="checkbox" id="keepPhotos"${keepPhotos() ? ' checked' : ''}><span>Keep a photo of each key moment<small class="muted">Stored on this device only, about 25 KB each, not in backups. Shows your own body with the angles on it.</small></span></label>
             <button id="run" class="btn primary big push">Analyze</button>
           </div>
@@ -709,6 +711,15 @@ function analyze(view: HTMLElement): void {
 
       <section class="section"><div class="section-head rise"><h2>3. Analysis</h2></div>
         <div class="tile busy rise"><div class="numeral md" id="pct">0<small>%</small></div><div class="stack" style="flex:1;min-width:0"><div class="meter"><div id="pbar" style="width:0"></div></div><p id="status" class="muted" role="status">Choose a video to begin.</p><div class="row"><button class="btn small" id="cancel" hidden>Cancel</button><button class="btn small" id="manualBtn" hidden>Measure by hand</button></div></div></div></section>
+
+      <section class="section" id="calib" hidden><div class="section-head rise"><h2>Set your scale</h2></div>
+        <div class="tile stack rise">
+          <p class="muted">Pick a frame where you stand tall and still. Drag the top line to the top of your head and the bottom line to the soles of your feet. That distance is your height, so the app knows how big a pixel is.</p>
+          <div class="calbox" id="calbox"><div class="calline" data-l="top" style="top:15%"><i></i><span>Top of head</span></div><div class="calline" data-l="bottom" style="top:88%"><i></i><span>Soles</span></div></div>
+          <input id="calscrub" type="range" min="0" max="1000" value="0" aria-label="Moment in the clip">
+          <div class="row"><button class="btn" id="calReset" type="button">Back to average</button><button class="btn primary" id="calSave" type="button">Use these lines</button></div>
+          <p class="muted" id="calOut" role="status"></p>
+        </div></section>
 
       <section class="section" id="manual" hidden><div class="section-head rise"><h2>Measure by hand</h2></div>
         <div class="tile stack rise">
@@ -740,6 +751,7 @@ function analyze(view: HTMLElement): void {
     run.textContent = job.running ? 'Analyzing...' : 'Analyze';
     $('cancel').hidden = !job.running;
     $('manualBtn').hidden = !chosen || job.running;
+    $('calBtn').hidden = !chosen || job.running;
     if (job.results && job.video && job.pose && job.results !== shown && !job.running) {
       shown = job.results;
       renderResults($('out'), job.video, job.pose, job.results, job.ids ?? []);
@@ -777,6 +789,8 @@ function analyze(view: HTMLElement): void {
     try {
       chosen = { file, video, info: await probeVideo(file, video, fps), tilt };
       manual.v = null;
+      cal.v = null;
+      $('calib').hidden = true;
       job.results = null;
       job.pose = null;
       job.progress = 0;
@@ -794,6 +808,79 @@ function analyze(view: HTMLElement): void {
     }
     paint();
   };
+  // setting the scale: two lines on a frame where you stand tall say how many pixels your height is
+  const cal = { v: null as HTMLVideoElement | null, top: 0.15, bottom: 0.88 };
+  const scaleNote = (): void => {
+    $('scaleNote').textContent = data.noseAnkle
+      ? `Scale: measured on you (nose to ankle is ${(data.noseAnkle * 100).toFixed(1)}% of your height, the average is ${AVERAGE_NOSE_ANKLE * 100}%).`
+      : 'Scale: average body proportions. Setting it from the video makes the hip rise and the reach more exact.';
+  };
+  scaleNote();
+  const showCal = (): void => {
+    if (!chosen) return;
+    const v = (cal.v ??= Object.assign(document.createElement('video'), { src: chosen.video.src, muted: true, playsInline: true, controls: false }));
+    const box = $('calbox');
+    if (!box.contains(v)) box.prepend(v);
+    $('calib').hidden = false;
+    $('calOut').textContent = '';
+    $('calib').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  };
+  $('calBtn').onclick = showCal;
+  $<HTMLInputElement>('calscrub').oninput = (e) => {
+    if (cal.v && chosen) cal.v.currentTime = (Number((e.target as HTMLInputElement).value) / 1000) * chosen.info.duration;
+  };
+  $('calbox').querySelectorAll<HTMLElement>('.calline').forEach((line) => {
+    line.onpointerdown = (e) => {
+      line.setPointerCapture(e.pointerId);
+      const move = (ev: PointerEvent): void => {
+        const r = cal.v!.getBoundingClientRect();
+        let y = Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height));
+        if (line.dataset.l === 'top') y = Math.min(y, cal.bottom - 0.1);
+        else y = Math.max(y, cal.top + 0.1);
+        cal[line.dataset.l as 'top' | 'bottom'] = y;
+        line.style.top = `${y * 100}%`;
+      };
+      const up = (): void => {
+        line.removeEventListener('pointermove', move);
+        line.removeEventListener('pointerup', up);
+      };
+      line.addEventListener('pointermove', move);
+      line.addEventListener('pointerup', up);
+    };
+  });
+  $('calReset').onclick = () => {
+    delete data.noseAnkle;
+    save(data);
+    scaleNote();
+    $('calOut').textContent = 'Back to average body proportions.';
+  };
+  $('calSave').onclick = async () => {
+    const v = cal.v;
+    if (!v) return;
+    const out = $('calOut');
+    out.textContent = 'Reading your body in this frame...';
+    try {
+      if (v.seeking) await new Promise((r) => v.addEventListener('seeked', r, { once: true }));
+      const live = await createLivePose();
+      const lm = live.detect(v);
+      live.close();
+      if (!lm) return void (out.textContent = 'No person found in this frame. Pick a frame where you are fully in view.');
+      const h = v.videoHeight;
+      const ratio = scaleRatio(lm[0].y * h, ((lm[27].y + lm[28].y) / 2) * h, cal.top * h, cal.bottom * h);
+      if (!(ratio >= 0.8 && ratio <= 0.97)) return void (out.textContent = `That gives ${(ratio * 100).toFixed(0)}%, which is not a human proportion. Put the lines on the top of your head and your soles, in a frame where you stand upright.`);
+      // a line can be placed to about one pixel on screen, so a small figure on a small preview gives a coarse scale
+      const spanOnScreen = (cal.bottom - cal.top) * v.getBoundingClientRect().height;
+      const exact = 200 / spanOnScreen; // percent, two lines of one pixel each
+      if (exact > 3) return void (out.textContent = `At this size the lines are only good to about ${exact.toFixed(1)}%, no better than the average. Pick a frame where you are bigger, or film closer.`);
+      data.noseAnkle = ratio;
+      save(data);
+      scaleNote();
+      out.textContent = `Saved. Your nose to ankle is ${(ratio * 100).toFixed(1)}% of your height (lines good to about ${exact.toFixed(1)}%). It is used for every analysis from now on.`;
+    } catch (e) {
+      out.textContent = e instanceof Error ? e.message : String(e);
+    }
+  };
+
   // measuring by hand: only the flight time counts, so any filming set-up works
   const manual = { cur: 0, take: -1, land: -1, v: null as HTMLVideoElement | null, sid: null as string | null };
   const fpsOf = (): number => chosen!.info.fps;
@@ -928,7 +1015,7 @@ function analyze(view: HTMLElement): void {
         jobChanged();
       }, kind === 'shot', job.controller.signal);
       const level = levelPose(pose); // a phone that leaned sideways is turned back before measuring
-      const results = kind === 'shot' ? analyzeShots(level.pose, height) : analyzeJumps(level.pose, height, kind, weight);
+      const results = kind === 'shot' ? analyzeShots(level.pose, height, data.noseAnkle) : analyzeJumps(level.pose, height, kind, weight, data.noseAnkle);
       if (level.rollDeg) results.forEach((r) => r.tips.push(`The phone leaned about ${Math.abs(level.rollDeg).toFixed(0)} degrees sideways. That was corrected.`));
       const snaps = results.map((r) => buildSnapshots(pose, r));
       const ids = results.map(() => newId());

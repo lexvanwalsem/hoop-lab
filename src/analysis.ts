@@ -116,7 +116,14 @@ function status(score: number): Status {
  * Crouching, jumping and walking into frame only make the span smaller, so a high
  * percentile over the whole clip finds the upright moments.
  */
-function calibrate(pose: Pose, heightCm: number, from = 0, to = pose.frames.length): number {
+export const AVERAGE_NOSE_ANKLE = 0.89;
+
+/** Nose-to-ankle as a share of body height, from the tracker's nose and ankle and the two lines the person drew (all in pixels, same frame). */
+export function scaleRatio(noseY: number, ankleY: number, headY: number, soleY: number): number {
+  return (ankleY - noseY) / (soleY - headY);
+}
+
+function calibrate(pose: Pose, heightCm: number, from = 0, to = pose.frames.length, ratio = AVERAGE_NOSE_ANKLE): number {
   const spans: number[] = [];
   for (const lm of pose.frames.slice(Math.max(0, from), to)) {
     if (!lm) continue;
@@ -124,7 +131,7 @@ function calibrate(pose: Pose, heightCm: number, from = 0, to = pose.frames.leng
     spans.push(ankle - lm[0].y * pose.height);
   }
   if (!spans.length) throw new Error('No person found in the video');
-  return (heightCm * 0.89) / percentile(spans, 0.9); // nose-to-ankle is about 89% of body height
+  return (heightCm * ratio) / percentile(spans, 0.9); // nose-to-ankle is about 89% of body height, unless it was measured on this person
 }
 
 function lowestFoot(pose: Pose): { low: number[]; ground: number } {
@@ -195,11 +202,11 @@ function detectionRate(pose: Pose): number {
  * Analyzes every jump in the clip (the highest one for a dunk). Each jump is calibrated
  * on the 4 s before its takeoff, so scale and floor match the place where the jump happens.
  */
-export function analyzeJumps(pose: Pose, heightCm: number, kind: 'standing' | 'dunk', weightKg?: number): Result[] {
-  let flights = findFlights(pose, calibrate(pose, heightCm)).filter((f) => f.peak >= 20); // ignore steps and small hops
+export function analyzeJumps(pose: Pose, heightCm: number, kind: 'standing' | 'dunk', weightKg?: number, ratio = AVERAGE_NOSE_ANKLE): Result[] {
+  let flights = findFlights(pose, calibrate(pose, heightCm, 0, pose.frames.length, ratio)).filter((f) => f.peak >= 20); // ignore steps and small hops
   if (!flights.length) throw new Error('No jump found. Check the filming guide.');
   if (kind === 'dunk') flights = [flights.reduce((a, b) => (b.peak > a.peak ? b : a))];
-  const results = flights.map((fl) => jumpResult(pose, fl, calibrate(pose, heightCm, fl.takeoff - 4 * pose.fps, fl.takeoff), kind, weightKg));
+  const results = flights.map((fl) => jumpResult(pose, fl, calibrate(pose, heightCm, fl.takeoff - 4 * pose.fps, fl.takeoff, ratio), kind, weightKg));
   // A real jump lifts the hips too. Feet that seem to leave the floor while the hips stay put are a floor that shifts in the
   // picture (walking towards the camera, a tilted phone), and a flight longer than 0.9 s is not a human jump.
   const clean = results.filter((r) => {
@@ -245,7 +252,9 @@ export function levelPose(pose: Pose): { pose: Pose; rollDeg: number } {
     if (dy > pose.height * 0.2) lean.push((Math.atan2(dx, dy) * 180) / Math.PI);
   }
   const roll = lean.length >= 10 ? percentile(lean, 0.5) : 0;
-  if (Math.abs(roll) < 2 || Math.abs(roll) > 20) return { pose, rollDeg: 0 }; // too small to matter, or too large to be tilt alone
+  // a real tilt is the same all clip long; someone who leans, bends or is badly tracked gives a scattered lean, and then nothing is changed
+  const spread = percentile(lean.map((v) => Math.abs(v - roll)), 0.5);
+  if (Math.abs(roll) < 2 || Math.abs(roll) > 20 || spread > 3) return { pose, rollDeg: 0 }; // too small to matter, too large to be tilt alone, or not steady
   const phi = (roll * Math.PI) / 180;
   const c = Math.cos(phi);
   const s = Math.sin(phi);
@@ -392,10 +401,10 @@ export function findShotWindows(pose: Pose): [number, number][] {
 }
 
 /** Analyzes every shot found in the clip. Mark frames are relative to the full clip. */
-export function analyzeShots(pose: Pose, heightCm: number): Result[] {
+export function analyzeShots(pose: Pose, heightCm: number, ratio = AVERAGE_NOSE_ANKLE): Result[] {
   const windows = findShotWindows(pose);
   if (!windows.length) throw new Error('No shot found: your shooting hand never goes above your head.');
-  const cm = calibrate(pose, heightCm); // calibrate on the whole clip, a single shot is mostly crouched
+  const cm = calibrate(pose, heightCm, 0, pose.frames.length, ratio); // calibrate on the whole clip, a single shot is mostly crouched
   return windows.map(([from, to]) => {
     const r = analyzeShot(slicePose(pose, from, to), heightCm, cm);
     return { ...r, marks: r.marks.map((m) => ({ ...m, frame: m.frame + from })) };

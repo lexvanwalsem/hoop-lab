@@ -26,6 +26,8 @@ export interface Data {
   heightCm: number;
   weightKg: number;
   goalCm: number; // jump height goal, 0 = not set
+  /** Nose-to-ankle as a share of the person's height, measured with the scale lines. Absent = the average, 0.89. */
+  noseAnkle?: number;
   sessions: Session[];
   exercises: Exercise[];
 }
@@ -49,6 +51,7 @@ export function sanitize(raw: unknown): Data {
   if (isNum(r.heightCm)) out.heightCm = r.heightCm;
   if (isNum(r.weightKg)) out.weightKg = r.weightKg;
   if (isNum(r.goalCm)) out.goalCm = r.goalCm;
+  if (isNum(r.noseAnkle) && r.noseAnkle >= 0.8 && r.noseAnkle <= 0.97) out.noseAnkle = r.noseAnkle;
   if (Array.isArray(r.sessions)) {
     for (const s of r.sessions as Record<string, unknown>[]) {
       if (s && isStr(s.id) && isStr(s.date) && KINDS.includes(s.kind as Kind) && isNum(s.headline) && Array.isArray(s.metrics)) {
@@ -118,6 +121,7 @@ export function importBackup(text: string, data: Data): { sessions: number; exer
   if (!data.heightCm) data.heightCm = incoming.heightCm;
   if (!data.weightKg) data.weightKg = incoming.weightKg;
   if (!data.goalCm) data.goalCm = incoming.goalCm;
+  if (!data.noseAnkle && incoming.noseAnkle) data.noseAnkle = incoming.noseAnkle;
   sortByDate(data);
   return { sessions: newS.length, exercises: newE.length };
 }

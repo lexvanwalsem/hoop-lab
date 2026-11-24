@@ -690,3 +690,11 @@ button, .tabs, .pick, .btn, summary, .chip { -webkit-user-select: none; user-sel
   .kicker, .hero-row .stack { text-align: center; justify-content: center; align-items: center; }
 }
 @media (max-width: 700px) { .demo-bar { justify-content: center; text-align: center; } }
+
+/* ---------- scale lines on a frame ---------- */
+.calbox { position: relative; width: fit-content; max-width: 100%; margin-inline: auto; line-height: 0; touch-action: none; }
+.calbox video { display: block; max-width: 100%; max-height: 44dvh; height: auto; border-radius: 12px; background: #000; }
+.calline { position: absolute; left: 0; right: 0; height: 44px; margin-top: -22px; display: flex; align-items: center; cursor: ns-resize; touch-action: none; }
+.calline i { flex: 1; height: 2px; background: var(--jump); box-shadow: 0 0 0 1px rgb(0 0 0 / 0.5); }
+.calline::before { content: ''; position: absolute; left: 6px; width: 20px; height: 20px; border-radius: 50%; background: var(--jump); box-shadow: 0 0 0 2px #fff; }
+.calline span { position: absolute; right: 8px; top: 4px; padding: 2px 8px; border-radius: 6px; background: rgb(0 0 0 / 0.65); color: #fff; font: 500 12px/1.4 var(--body); }
