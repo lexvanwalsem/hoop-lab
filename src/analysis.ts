@@ -17,6 +17,8 @@ export interface Result {
   tips: string[];
   marks: { name: string; frame: number }[];
   detectionRate: number;
+  /** How far the headline can be off, in cm: one frame of timing for a jump, the body-size assumption for a dunk. */
+  precision?: number;
 }
 
 const G = 9.81;
@@ -215,7 +217,7 @@ const metricValue = (r: Result, label: string): number => parseFloat(r.metrics.f
  * A jump measured by hand: the person marked the first frame in the air and the first frame back on the floor.
  * Only the flight time counts, so it works from any camera angle and distance, even when the tracker cannot follow the body.
  */
-export function manualJump(flightSeconds: number, weightKg?: number): Result {
+export function manualJump(flightSeconds: number, weightKg?: number, fps = 60): Result {
   const hang = (100 * G * flightSeconds * flightSeconds) / 8;
   const metrics: Metric[] = [
     { label: 'Jump height (flight time)', value: `${hang.toFixed(1)} cm`, status: 'info' },
@@ -226,7 +228,7 @@ export function manualJump(flightSeconds: number, weightKg?: number): Result {
     metrics.push({ label: 'Peak power (Sayers)', value: `${power.toFixed(0)} W`, status: 'info' });
     metrics.push({ label: 'Relative power', value: `${(power / weightKg).toFixed(1)} W/kg`, status: status(band(power / weightKg, 55, 200, 20)), target: '55+ W/kg' });
   }
-  return { kind: 'standing', headline: hang, metrics, tips: ['Marked by hand, so there are no joint angles. Film at 60 fps and about 45 degrees to get the full analysis.'], marks: [], detectionRate: 1 };
+  return { kind: 'standing', headline: hang, metrics, tips: ['Marked by hand, so there are no joint angles. Film at 60 fps and about 45 degrees to get the full analysis.'], marks: [], detectionRate: 1, precision: (100 * G * flightSeconds) / 4 / fps };
 }
 
 /**
@@ -337,7 +339,9 @@ function jumpResult(pose: Pose, fl: Flight, cm: number, kind: 'standing' | 'dunk
   // standing jump: flight time is the standard field measure and is more stable than the hip path;
   // dunk: take-off and landing are not alike, so use the hip rise
   const headline = kind === 'standing' ? hangHeight : rise;
-  return { kind, headline, metrics, tips, marks, detectionRate: detectionRate(pose) };
+  // flight time is only known to a frame: dh = g * t * dt / 4. A dunk rests on the pixel scale, which assumes average body proportions (about 3 percent).
+  const precision = kind === 'standing' ? (100 * G * flightTime) / 4 / fps : headline * 0.03;
+  return { kind, headline, metrics, tips, marks, detectionRate: detectionRate(pose), precision };
 }
 
 // ---------- shot ----------

@@ -823,7 +823,7 @@ function analyze(view: HTMLElement): void {
     $<HTMLButtonElement>('mSave').disabled = !(t >= 0.15 && t <= 1.2);
     if (manual.take < 0 || manual.land < 0) out.textContent = manual.take < 0 ? 'Mark the first frame in the air.' : 'Now mark the first frame back on the floor.';
     else if (t < 0.15 || t > 1.2) out.textContent = 'That flight time does not look like a jump. Mark the frames again.';
-    else out.textContent = `${manual.sid ? 'Found by the tracker. If it is off, move to the right frame and mark again. ' : ''}Flight time ${t.toFixed(2)} s, jump height about ${manualJump(t).headline.toFixed(0)} cm.`;
+    else out.textContent = `${manual.sid ? 'Found by the tracker. If it is off, move to the right frame and mark again. ' : ''}Flight time ${t.toFixed(2)} s, jump height about ${manualJump(t, undefined, fpsOf()).headline.toFixed(0)} cm (give or take ${manualJump(t, undefined, fpsOf()).precision!.toFixed(0)}).`;
   };
   $('manualBtn').onclick = () => {
     manual.sid = null;
@@ -848,7 +848,7 @@ function analyze(view: HTMLElement): void {
   $('mLand').onclick = () => { manual.land = manual.cur; updateManual(); };
   $('mSave').onclick = () => {
     const weight = Number($<HTMLInputElement>('weight').value);
-    const r = manualJump(flightOf(), weight >= 30 && weight <= 200 ? weight : undefined);
+    const r = manualJump(flightOf(), weight >= 30 && weight <= 200 ? weight : undefined, fpsOf());
     const old = manual.sid ? data.sessions.find((s) => s.id === manual.sid) : undefined;
     if (old) {
       // a correction: the measured values are replaced, everything else about the jump stays
@@ -1005,7 +1005,7 @@ function renderResult(out: HTMLElement, video: HTMLVideoElement, pose: Pose, r: 
         <div class="kicker"><i></i>${KIND_LABEL[r.kind]}</div>
         <div class="numeral big">${count(r.headline)}<small>${isShot ? '/ 100' : 'cm'}</small></div>
         <div class="stack" style="gap:10px;max-width:420px"><div class="meter" style="--c:${KIND_COLOR[r.kind]}"><div data-w="${pct}"></div></div><span class="muted small">${isShot ? 'Shot score' : `${pct.toFixed(0)}% of your best`}</span></div>
-        <div class="chips">${statusChips(r.metrics)}</div>
+        <div class="chips">${statusChips(r.metrics)}${r.precision ? `<span class="chip" title="${isShot ? '' : 'One frame of timing'}">about ± ${Math.max(1, Math.round(r.precision))} cm</span>` : ''}</div>
         ${!isShot && sid && r.marks.some((m) => m.name === 'Takeoff') ? '<button class="btn small" data-adjust type="button">Not right? Adjust takeoff and landing</button>' : ''}
         ${r.detectionRate < 0.85 ? `<p class="error small">Body found in only ${(r.detectionRate * 100).toFixed(0)}% of frames. Results may be unreliable.</p>` : ''}
       </div>
