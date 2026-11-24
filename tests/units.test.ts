@@ -241,3 +241,14 @@ test('a jump marked by hand gives the height from the flight time', () => {
   assert.equal(r.metrics[1].value, '0.60 s');
   assert.ok(r.metrics.some((m) => m.label === 'Peak power (Sayers)'));
 });
+
+// ---- phone tilt in the framing check ----
+
+test('a tipped phone is flagged but does not block recording', () => {
+  const ok = checkFraming(person(0.2, 0.88), 9 / 16, 120, 'advised', { pitch: 2, roll: 1 });
+  assert.equal(ok.checks.find((c) => c.id === 'level')!.ok, true);
+  const tipped = checkFraming(person(0.2, 0.88), 9 / 16, 120, 'advised', { pitch: 20, roll: 1 });
+  assert.equal(tipped.ready, true);
+  assert.match(tipped.say, /tilted 20 degrees/);
+  assert.match(checkFraming(person(0.2, 0.88), 9 / 16, 120, 'advised', { pitch: 1, roll: 12 }).say, /leans 12 degrees/);
+});

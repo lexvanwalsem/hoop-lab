@@ -5,14 +5,15 @@ import '@fontsource/barlow-condensed/700.css';
 import type { Chart } from 'chart.js';
 import './style.css';
 import { shortDate, trendChart, volumeChart, type Series } from './charts';
-import { analyzeJumps, analyzeShots, manualJump, type Kind, type Metric, type Result } from './analysis';
+import { analyzeJumps, analyzeShots, levelPose, manualJump, type Kind, type Metric, type Result } from './analysis';
 import { drillName, exampleUrl, recommend, type Rec } from './coach';
-import { filmingGuide, jumpGuide, setups, type Section } from './guide';
+import { filmingGuide, jumpGuide, measuring, setups, type Section } from './guide';
 import { extractPose, type Pose } from './pose';
 import { demoData } from './demo';
 import { exportBackup, importBackup, load, newId, save, sortByDate, today, type Data, type Session, backupDue, lastBackup, markBackup } from './store';
 import { probeVideo, type VideoInfo } from './video';
 import { openFramingCheck } from './camera';
+import { MAX_PITCH, MAX_ROLL, type Tilt } from './framing';
 import { installHelp, keepAwake, watchUpdates } from './native';
 import { clearPhotos, deletePhotos, getPhotoUrl, keepPhotos, savePhotos, setKeepPhotos } from './photos';
 import { snapSvg } from './snapview';
@@ -106,7 +107,9 @@ interface Job {
   ids: string[] | null; // the saved session of each result, to find its photos
 }
 const job: Job = { running: false, progress: 0, status: '', failed: false, controller: null, video: null, pose: null, results: null, ids: null };
-let paintJob: () => void = () => {}; // set by the Analyze page while it is on screen
+let paintJob: () => void = () => {};
+/** Set by the Analyze page: opens the hand correction with the detected takeoff and landing. */
+let onAdjust: ((d: { sid: string; takeoff: number; landing: number; fps: number }) => void) | null = null; // set by the Analyze page while it is on screen
 
 /** Updates everything that shows the job: the Analyze page and the pill in the header. */
 function jobChanged(): void {
@@ -650,14 +653,14 @@ function dashboard(view: HTMLElement): void {
 // ---------- analyze ----------
 
 let selKind: Kind = 'standing';
-let chosen: { file: File; video: HTMLVideoElement; info: VideoInfo } | null = null;
+let chosen: { file: File; video: HTMLVideoElement; info: VideoInfo; tilt?: Tilt } | null = null;
 
 /** A clip recorded in the framing view: it waits here until the Analyze page can take it. */
-let incoming: { file: File; fps?: number } | null = null;
-let acceptClip: ((file: File, fps?: number) => void) | null = null;
-function recorded(file: File, fps?: number): void {
-  if (tab === 'analyze' && acceptClip) return acceptClip(file, fps);
-  incoming = { file, fps };
+let incoming: { file: File; fps?: number; tilt?: Tilt } | null = null;
+let acceptClip: ((file: File, fps?: number, tilt?: Tilt) => void) | null = null;
+function recorded(file: File, fps?: number, tilt?: Tilt): void {
+  if (tab === 'analyze' && acceptClip) return acceptClip(file, fps, tilt);
+  incoming = { file, fps, tilt };
   navigate('analyze');
 }
 
@@ -668,6 +671,13 @@ function fpsNote(info: VideoInfo, kind: Kind): string {
   if (info.fps >= 50) return `<span class="chip good">${info.fps.toFixed(0)} fps, good</span>`;
   if (kind === 'shot') return `<span class="chip warn">${info.fps.toFixed(0)} fps: shot timing is coarse (${(1000 / info.fps).toFixed(0)} ms per frame). Film at 60 fps or more.</span>`;
   return `<span class="chip warn">${info.fps.toFixed(0)} fps: jump height is fine, takeoff and landing are less exact. 60 fps is better.</span>`;
+}
+
+/** A chip with the phone tilt measured while recording, red when it is enough to distort the scale. */
+function tiltNote(t?: Tilt): string {
+  if (!t) return '';
+  const bad = Math.abs(t.pitch) > MAX_PITCH || Math.abs(t.roll) > MAX_ROLL;
+  return `<span class="chip ${bad ? 'warn' : 'good'}">${bad ? `phone tilted ${Math.abs(t.pitch).toFixed(0)} up/down, ${Math.abs(t.roll).toFixed(0)} sideways` : 'phone upright'}</span>`;
 }
 
 function analyze(view: HTMLElement): void {
@@ -745,7 +755,7 @@ function analyze(view: HTMLElement): void {
     if (!chosen) return;
     const i = chosen.info;
     const mins = Math.max(1, Math.round(estimateSeconds(i, selKind) / 60));
-    $('info').innerHTML = `<span class="chip good">${esc(chosen.file.name)}</span><span class="chip">${i.width}x${i.height}</span><span class="chip">${i.duration.toFixed(1)} s</span>${fpsNote(i, selKind)}<span class="chip">about ${mins} min to analyze</span>`;
+    $('info').innerHTML = `<span class="chip good">${esc(chosen.file.name)}</span><span class="chip">${i.width}x${i.height}</span><span class="chip">${i.duration.toFixed(1)} s</span>${fpsNote(i, selKind)}<span class="chip">about ${mins} min to analyze</span>${tiltNote(chosen.tilt)}`;
   };
   renderInfo();
 
@@ -758,14 +768,15 @@ function analyze(view: HTMLElement): void {
     renderInfo();
   }));
 
-  const take = async (file: File, fps?: number): Promise<void> => {
+  const take = async (file: File, fps?: number, tilt?: Tilt): Promise<void> => {
     if (job.running) return; // one analysis at a time
     const video = document.createElement('video');
     video.muted = true;
     video.playsInline = true;
     video.src = URL.createObjectURL(file);
     try {
-      chosen = { file, video, info: await probeVideo(file, video, fps) };
+      chosen = { file, video, info: await probeVideo(file, video, fps), tilt };
+      manual.v = null;
       job.results = null;
       job.pose = null;
       job.progress = 0;
@@ -784,26 +795,26 @@ function analyze(view: HTMLElement): void {
     paint();
   };
   // measuring by hand: only the flight time counts, so any filming set-up works
-  const manual = { cur: 0, take: -1, land: -1 };
+  const manual = { cur: 0, take: -1, land: -1, v: null as HTMLVideoElement | null, sid: null as string | null };
   const fpsOf = (): number => chosen!.info.fps;
   const lastFrame = (): number => Math.max(0, Math.floor(chosen!.info.duration * fpsOf()) - 1);
   const goto = (i: number): void => {
     if (!chosen) return;
     manual.cur = Math.min(lastFrame(), Math.max(0, i));
-    chosen.video.currentTime = (manual.cur + 0.5) / fpsOf();
+    if (manual.v) manual.v.currentTime = (manual.cur + 0.5) / fpsOf();
     $<HTMLInputElement>('mscrub').value = String(manual.cur);
     $('mFrame').textContent = `frame ${manual.cur}`;
   };
   const flightOf = (): number => (manual.take >= 0 && manual.land > manual.take ? (manual.land - manual.take) / fpsOf() : 0);
   const showManual = (): void => {
     if (!chosen) return;
-    const v = chosen.video;
-    v.controls = false;
+    // its own video, so the replay in the result keeps working
+    const v = (manual.v ??= Object.assign(document.createElement('video'), { src: chosen.video.src, muted: true, playsInline: true, controls: false }));
     v.style.cssText = 'width:100%;max-height:38dvh;margin-inline:auto;display:block;border-radius:12px;background:#000';
     $('mvbox').append(v);
     $<HTMLInputElement>('mscrub').max = String(lastFrame());
     $('manual').hidden = false;
-    goto(0);
+    goto(manual.take >= 0 ? manual.take : 0);
     $('manual').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
   };
   const updateManual = (): void => {
@@ -812,9 +823,24 @@ function analyze(view: HTMLElement): void {
     $<HTMLButtonElement>('mSave').disabled = !(t >= 0.15 && t <= 1.2);
     if (manual.take < 0 || manual.land < 0) out.textContent = manual.take < 0 ? 'Mark the first frame in the air.' : 'Now mark the first frame back on the floor.';
     else if (t < 0.15 || t > 1.2) out.textContent = 'That flight time does not look like a jump. Mark the frames again.';
-    else out.textContent = `Flight time ${t.toFixed(2)} s, jump height about ${manualJump(t).headline.toFixed(0)} cm.`;
+    else out.textContent = `${manual.sid ? 'Found by the tracker. If it is off, move to the right frame and mark again. ' : ''}Flight time ${t.toFixed(2)} s, jump height about ${manualJump(t).headline.toFixed(0)} cm.`;
   };
-  $('manualBtn').onclick = showManual;
+  $('manualBtn').onclick = () => {
+    manual.sid = null;
+    manual.take = manual.land = -1;
+    updateManual();
+    showManual();
+  };
+  // "Not right?" under an automatic result: the detected takeoff and landing become the starting marks, to be nudged
+  onAdjust = (d) => {
+    if (!chosen) return;
+    const toFrame = (poseFrame: number): number => Math.round(((poseFrame + 0.5) / d.fps) * fpsOf() - 0.5);
+    manual.sid = d.sid;
+    manual.take = toFrame(d.takeoff + 1);
+    manual.land = toFrame(d.landing);
+    updateManual();
+    showManual();
+  };
   $<HTMLInputElement>('mscrub').oninput = (e) => goto(Number((e.target as HTMLInputElement).value));
   $('mPrev').onclick = () => goto(manual.cur - 1);
   $('mNext').onclick = () => goto(manual.cur + 1);
@@ -823,15 +849,29 @@ function analyze(view: HTMLElement): void {
   $('mSave').onclick = () => {
     const weight = Number($<HTMLInputElement>('weight').value);
     const r = manualJump(flightOf(), weight >= 30 && weight <= 200 ? weight : undefined);
-    data.sessions.push({ id: newId(), date: today(), kind: 'standing', headline: r.headline, metrics: r.metrics, tips: r.tips });
-    $('mOut').textContent = save(data) ? `Saved: ${r.headline.toFixed(0)} cm. It is on your dashboard.` : 'The browser could not store it (storage full or blocked). Export what you need.';
+    const old = manual.sid ? data.sessions.find((s) => s.id === manual.sid) : undefined;
+    if (old) {
+      // a correction: the measured values are replaced, everything else about the jump stays
+      const fresh = new Map(r.metrics.map((m) => [m.label, m]));
+      old.metrics = old.metrics.map((m) => fresh.get(m.label) ?? m);
+      old.headline = r.headline;
+      old.tips = old.tips.filter((t) => !t.startsWith('Hip rise and flight time disagree')).concat('Takeoff and landing were adjusted by hand.');
+      const i = job.ids?.indexOf(old.id) ?? -1;
+      if (i >= 0 && job.results) {
+        job.results[i].headline = r.headline;
+        job.results[i].metrics = old.metrics;
+        job.results[i].tips = old.tips;
+        renderResults($('out'), job.video!, job.pose!, job.results, job.ids!);
+      }
+    } else data.sessions.push({ id: newId(), date: today(), kind: 'standing', headline: r.headline, metrics: r.metrics, tips: r.tips });
+    $('mOut').textContent = save(data) ? `Saved: ${r.headline.toFixed(0)} cm. ${old ? 'Your dashboard is updated.' : 'It is on your dashboard.'}` : 'The browser could not store it (storage full or blocked). Export what you need.';
     $<HTMLButtonElement>('mSave').disabled = true;
   };
-  acceptClip = (file, fps) => void take(file, fps);
+  acceptClip = (file, fps, tilt) => void take(file, fps, tilt);
   if (incoming) {
     const clip = incoming;
     incoming = null;
-    void take(clip.file, clip.fps);
+    void take(clip.file, clip.fps, clip.tilt);
   }
   $<HTMLInputElement>('file').onchange = (ev) => {
     const f = (ev.target as HTMLInputElement).files?.[0];
@@ -887,7 +927,9 @@ function analyze(view: HTMLElement): void {
         job.status = `Tracking your body${kind === 'shot' ? ' and the ball' : ''}${p > 0.05 ? `, about ${Math.ceil(el / p - el)} s left` : ''}. You can switch tabs, but keep this one open.`;
         jobChanged();
       }, kind === 'shot', job.controller.signal);
-      const results = kind === 'shot' ? analyzeShots(pose, height) : analyzeJumps(pose, height, kind, weight);
+      const level = levelPose(pose); // a phone that leaned sideways is turned back before measuring
+      const results = kind === 'shot' ? analyzeShots(level.pose, height) : analyzeJumps(level.pose, height, kind, weight);
+      if (level.rollDeg) results.forEach((r) => r.tips.push(`The phone leaned about ${Math.abs(level.rollDeg).toFixed(0)} degrees sideways. That was corrected.`));
       const snaps = results.map((r) => buildSnapshots(pose, r));
       const ids = results.map(() => newId());
       results.forEach((r, i) => data.sessions.push({ id: ids[i], date: today(), kind, headline: r.headline, metrics: r.metrics, tips: r.tips, snaps: snaps[i] }));
@@ -964,6 +1006,7 @@ function renderResult(out: HTMLElement, video: HTMLVideoElement, pose: Pose, r: 
         <div class="numeral big">${count(r.headline)}<small>${isShot ? '/ 100' : 'cm'}</small></div>
         <div class="stack" style="gap:10px;max-width:420px"><div class="meter" style="--c:${KIND_COLOR[r.kind]}"><div data-w="${pct}"></div></div><span class="muted small">${isShot ? 'Shot score' : `${pct.toFixed(0)}% of your best`}</span></div>
         <div class="chips">${statusChips(r.metrics)}</div>
+        ${!isShot && sid && r.marks.some((m) => m.name === 'Takeoff') ? '<button class="btn small" data-adjust type="button">Not right? Adjust takeoff and landing</button>' : ''}
         ${r.detectionRate < 0.85 ? `<p class="error small">Body found in only ${(r.detectionRate * 100).toFixed(0)}% of frames. Results may be unreliable.</p>` : ''}
       </div>
     </section>
@@ -981,6 +1024,11 @@ function renderResult(out: HTMLElement, video: HTMLVideoElement, pose: Pose, r: 
     </section>`;
 
   out.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => (b.onclick = () => navigate(b.dataset.go as Tab)));
+  const adjust = out.querySelector<HTMLButtonElement>('[data-adjust]');
+  if (adjust && sid) {
+    const frameOf = (name: string): number => r.marks.find((m) => m.name === name)!.frame;
+    adjust.onclick = () => onAdjust?.({ sid, takeoff: frameOf('Takeoff'), landing: frameOf('Landing'), fps: pose.fps });
+  }
   phoneLayout(out);
   hydratePhotos(out);
   animateIn(out);
@@ -1033,7 +1081,7 @@ let guideSel: 'jump' | 'shot' = 'jump';
 /** One guide with two tabs: jumping and shooting. The set-up of the camera is shared. */
 function guide(view: HTMLElement): void {
   const [setup, standing, dunk, shot] = filmingGuide;
-  const sections = guideSel === 'jump' ? [setup, setups, standing, dunk, ...jumpGuide] : [setup, setups, shot];
+  const sections = guideSel === 'jump' ? [setup, setups, standing, dunk, ...jumpGuide, measuring] : [setup, setups, shot];
   const tabs = [['jump', 'Jumping'], ['shot', 'Shooting']] as const;
   const seg = `<div class="pills guide-seg rise" role="group" aria-label="Guide">${tabs.map(([k, l]) => `<button class="pill ${k === guideSel ? 'on' : ''}" data-g="${k}" aria-pressed="${k === guideSel}">${l}</button>`).join('')}</div>`;
   guidePage(view, 'Guide', guideSel === 'jump' ? 'How to film a jump, and how to jump higher.' : 'How to film a shot so the tracker reads it well.', seg, sections, framingPanel());

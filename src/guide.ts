@@ -74,6 +74,22 @@ export const setups: Section = {
   ],
 };
 
+export const measuring: Section = {
+  title: 'How the jump height is measured',
+  intro: 'Simple physics: the longer you stay in the air, the higher you went.',
+  layout: 'steps',
+  items: [
+    { icon: 'ruler', t: 'Scale from your height', d: 'You enter your height. The tracker measures how many pixels your nose-to-ankle distance is while you stand, which is 89 percent of your height. That gives centimetres per pixel.' },
+    { icon: 'jump', t: 'Takeoff and landing', d: 'The lowest point of your feet is compared with the floor level, taken from the last second before. When both feet are more than 5 cm above it for at least 0.1 s you are in the air. The exact moment of contact is found by stepping back to where the foot starts to lift.' },
+    { icon: 'clock', t: 'Flight time', d: 'The number of frames in the air divided by the frame rate. At 60 fps one frame is 17 ms, at 30 fps it is 33 ms.' },
+    { icon: 'spring', t: 'Height from flight time', d: 'You rise for half the flight and fall for the other half, so height = 9.81 x time x time / 8. A flight of 0.60 s is 44 cm. This only needs time, so the camera angle, distance and tilt do not change it.' },
+    { icon: 'check', t: 'A second opinion', d: 'The rise of your hips is measured too. If it differs by more than 10 cm a note appears, and a flight where the hips do not rise at all is thrown out, because that is a shifting floor, not a jump.' },
+    { icon: 'bolt', t: 'Dunk approach', d: 'Take-off and landing are not alike after a run-up, so the hip rise is used instead, with your hand reach on top.' },
+    { icon: 'target', t: 'Tilt', d: 'A phone that leans sideways is turned back automatically, using the line from your ankles to your shoulders. Tilt up or down cannot be seen in the picture, so the app reads it from the phone when you record here, and warns you. It matters for angles and the hip rise, not for the flight time.' },
+    { icon: 'check', t: 'Wrong? Correct it', d: 'Under every automatic jump result you can adjust the takeoff and landing frame by hand. The jump and your dashboard are updated.' },
+  ],
+};
+
 export const jumpGuide: Section[] = [
   {
     title: 'What decides how high you jump',

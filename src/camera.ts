@@ -1,6 +1,6 @@
 import { VERDICT } from './art';
 import type { Kind } from './analysis';
-import { checkFraming, type Check, type Framing } from './framing';
+import { checkFraming, type Check, type Framing, type Tilt } from './framing';
 import { createLivePose } from './pose';
 import { keepAwake } from './native';
 
@@ -13,7 +13,7 @@ const NO_CAMERA = 'This browser cannot open the camera here. Camera access needs
 
 /** Full-screen live view with a checklist: is the person framed the way the analysis needs? Nothing is recorded or sent anywhere. */
 /** `kind` decides how much the side view matters. `onRecorded` receives a clip recorded here, with the frame rate the camera reported. */
-export function openFramingCheck(opts: { kind?: Kind; onRecorded?: (file: File, fps: number) => void } = {}): void {
+export function openFramingCheck(opts: { kind?: Kind; onRecorded?: (file: File, fps: number, tilt?: Tilt) => void } = {}): void {
   const turn = opts.kind === 'shot' ? 'required' : 'advised';
   if (document.querySelector('.camcheck')) return;
   const opener = document.activeElement as HTMLElement | null;
@@ -62,6 +62,15 @@ export function openFramingCheck(opts: { kind?: Kind; onRecorded?: (file: File, 
   let countdown = 0; // timer id while counting down or recording
   let facing: 'user' | 'environment' = 'user'; // the front camera by default: you can see the screen while you stand in front of it
   const recent: Framing[] = [];
+  // the phone's own tilt, so a leaning or tipped phone is caught before it distorts the scale (not available on a computer)
+  let tilt: Tilt | undefined;
+  const onOrient = (e: DeviceOrientationEvent): void => {
+    if (e.beta === null || e.gamma === null) return;
+    const landscape = Math.abs(screen.orientation?.angle ?? 0) === 90;
+    tilt = landscape ? { pitch: Math.abs(e.gamma) - 90, roll: e.beta } : { pitch: e.beta - 90, roll: e.gamma };
+  };
+  const DO = window.DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> } | undefined;
+  void (DO?.requestPermission ? DO.requestPermission() : Promise.resolve('granted')).then((r) => r === 'granted' && window.addEventListener('deviceorientation', onOrient)).catch(() => undefined);
 
   const onKey = (e: KeyboardEvent): void => {
     if (e.key === 'Escape') close();
@@ -78,6 +87,7 @@ export function openFramingCheck(opts: { kind?: Kind; onRecorded?: (file: File, 
     stream?.getTracks().forEach((t) => t.stop());
     pose?.close();
     document.removeEventListener('keydown', onKey);
+    window.removeEventListener('deviceorientation', onOrient);
     root.remove();
     document.documentElement.classList.remove('sheet-open');
     opener?.focus?.();
@@ -112,7 +122,7 @@ export function openFramingCheck(opts: { kind?: Kind; onRecorded?: (file: File, 
   };
 
   const paintList = (f: Framing): void => {
-    $('[data-checks]').innerHTML = f.checks.map((c) => `<li class="${c.ok ? 'ok' : c.advisory ? 'adv' : 'no'}">${VERDICT(c.ok)}<span>${c.label}${!c.ok && c.id === 'angle' && c.hint !== 'Step into the frame so the tracker can find you.' ? `<small>${c.hint}</small>` : ''}</span></li>`).join('');
+    $('[data-checks]').innerHTML = f.checks.map((c) => `<li class="${c.ok ? 'ok' : c.advisory ? 'adv' : 'no'}">${VERDICT(c.ok)}<span>${c.label}${!c.ok && (c.id === 'angle' || c.id === 'level') && c.hint !== 'Step into the frame so the tracker can find you.' ? `<small>${c.hint}</small>` : ''}</span></li>`).join('');
     $('[data-say]').textContent = f.say;
   };
 
@@ -159,7 +169,7 @@ export function openFramingCheck(opts: { kind?: Kind; onRecorded?: (file: File, 
       lastLight = now;
     }
     const lm = pose.detect(video);
-    const f = settled(checkFraming(lm, video.videoWidth / video.videoHeight, light, turn));
+    const f = settled(checkFraming(lm, video.videoWidth / video.videoHeight, light, turn, tilt));
     draw(lm, f.ready);
     paintList(f);
   };
@@ -239,8 +249,9 @@ export function openFramingCheck(opts: { kind?: Kind; onRecorded?: (file: File, 
       const type = rec.mimeType || mime || 'video/webm';
       const file = new File(chunks, `recording-${new Date().toISOString().slice(0, 10)}.${type.includes('mp4') ? 'mp4' : 'webm'}`, { type });
       const fps = Math.round(stream?.getVideoTracks()[0]?.getSettings().frameRate ?? 30);
+      const held = tilt;
       close();
-      opts.onRecorded?.(file, fps);
+      opts.onRecorded?.(file, fps, held);
     };
     rec.start();
     let seconds = 0;

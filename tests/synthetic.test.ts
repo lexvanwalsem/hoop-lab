@@ -1,6 +1,6 @@
 // Run with: node --test tests/ (or node tests/synthetic.test.ts for the plain list)
 // Builds a fake stick-figure pose sequence with a known jump and checks the analysis output.
-import { analyzeJump, analyzeJumps, analyzeShot, analyzeShots } from '../src/analysis.ts';
+import { levelPose, analyzeJump, analyzeJumps, analyzeShot, analyzeShots } from '../src/analysis.ts';
 
 const FPS = 60;
 const W = 1000;
@@ -89,6 +89,23 @@ check('standing: dip (cm)', metric(standing, 'Countermovement'), 30, 5);
   }
   console.log(`${refused ? 'PASS' : 'FAIL'}  feet up but hips still is not a jump`);
   if (!refused) failed++;
+}
+
+// a phone leaning 10 degrees sideways must give the same jump once levelled
+{
+  const base = buildPose({ jumpCm: 40, dipCm: 30, runSpeed: 0 });
+  const th = (10 * Math.PI) / 180;
+  const turned = {
+    ...base,
+    frames: base.frames.map((f) => f.map((p) => {
+      const x = p.x * W - W / 2;
+      const y = p.y * H - H / 2;
+      return { x: (x * Math.cos(th) - y * Math.sin(th) + W / 2) / W, y: (x * Math.sin(th) + y * Math.cos(th) + H / 2) / H };
+    })),
+  };
+  const lv = levelPose(turned as never);
+  check('tilt: roll found (deg)', Math.abs(lv.rollDeg), 10, 1.5);
+  check('tilt: height after levelling (cm)', analyzeJump(lv.pose, BODY_CM, 'standing').headline, 40, 6);
 }
 
 const dunk = analyzeJump(buildPose({ jumpCm: 60, dipCm: 15, runSpeed: 5 }), BODY_CM, 'dunk');

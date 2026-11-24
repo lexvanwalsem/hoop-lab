@@ -229,6 +229,34 @@ export function manualJump(flightSeconds: number, weightKg?: number): Result {
   return { kind: 'standing', headline: hang, metrics, tips: ['Marked by hand, so there are no joint angles. Film at 60 fps and about 45 degrees to get the full analysis.'], marks: [], detectionRate: 1 };
 }
 
+/**
+ * A phone that leans sideways (roll) tilts the whole picture. Someone standing upright shows how much: the line from the
+ * ankles to the shoulders should be vertical. The median over the clip is used to turn every point back. Tilt up or down
+ * (pitch) cannot be seen in the picture; the phone's own sensor reports it when you record in the app.
+ */
+export function levelPose(pose: Pose): { pose: Pose; rollDeg: number } {
+  const lean: number[] = [];
+  for (const lm of pose.frames) {
+    if (!lm) continue;
+    const dx = ((lm[11].x + lm[12].x) / 2 - (lm[27].x + lm[28].x) / 2) * pose.width;
+    const dy = ((lm[27].y + lm[28].y) / 2 - (lm[11].y + lm[12].y) / 2) * pose.height; // upwards
+    if (dy > pose.height * 0.2) lean.push((Math.atan2(dx, dy) * 180) / Math.PI);
+  }
+  const roll = lean.length >= 10 ? percentile(lean, 0.5) : 0;
+  if (Math.abs(roll) < 2 || Math.abs(roll) > 20) return { pose, rollDeg: 0 }; // too small to matter, or too large to be tilt alone
+  const phi = (roll * Math.PI) / 180;
+  const c = Math.cos(phi);
+  const s = Math.sin(phi);
+  const cx = pose.width / 2;
+  const cy = pose.height / 2;
+  const turn = <T extends { x: number; y: number }>(p: T): T => {
+    const x = p.x * pose.width - cx;
+    const y = p.y * pose.height - cy;
+    return { ...p, x: (x * c + y * s + cx) / pose.width, y: (-x * s + y * c + cy) / pose.height };
+  };
+  return { pose: { ...pose, frames: pose.frames.map((f) => (f ? f.map(turn) : null)), balls: (pose.balls ?? []).map((b) => (b ? turn(b) : null)) }, rollDeg: roll };
+}
+
 /** Single jump: the highest one in the clip. */
 export function analyzeJump(pose: Pose, heightCm: number, kind: 'standing' | 'dunk', weightKg?: number): Result {
   const all = analyzeJumps(pose, heightCm, kind, weightKg);

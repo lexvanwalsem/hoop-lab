@@ -7,7 +7,7 @@ export interface LivePt {
 }
 
 export interface Check {
-  id: 'frame' | 'size' | 'angle' | 'light';
+  id: 'frame' | 'size' | 'angle' | 'level' | 'light';
   label: string;
   ok: boolean;
   hint: string;
@@ -48,7 +48,15 @@ const mid = (a: LivePt, b: LivePt): { x: number; y: number } => ({ x: (a.x + b.x
  * `angle` says how much the turn matters: a shot needs about 45 degrees (the elbow and the arc must show, and both arms must stay
  * visible), a jump does not (its height comes from flight time and works from any angle), but joint angles are better at 45 degrees.
  */
-export function checkFraming(lm: LivePt[] | null, aspect: number, brightness?: number, angle: 'required' | 'advised' = 'required'): Framing {
+/** How far the phone is tilted, in degrees, from its motion sensor: pitch is up or down, roll is sideways. */
+export interface Tilt {
+  pitch: number;
+  roll: number;
+}
+export const MAX_PITCH = 8;
+export const MAX_ROLL = 5;
+
+export function checkFraming(lm: LivePt[] | null, aspect: number, brightness?: number, angle: 'required' | 'advised' = 'required', tilt?: Tilt): Framing {
   const checks: Check[] = [];
   const found = !!lm && lm.length >= 33;
 
@@ -86,6 +94,17 @@ export function checkFraming(lm: LivePt[] | null, aspect: number, brightness?: n
     ...(angle === 'advised' ? { advisory: true } : {}),
   });
 
+  if (tilt) {
+    const flat = Math.abs(tilt.pitch) <= MAX_PITCH;
+    checks.push({
+      id: 'level',
+      label: 'Phone upright',
+      ok: flat && Math.abs(tilt.roll) <= MAX_ROLL,
+      advisory: true,
+      hint: !flat ? `The phone is tilted ${Math.round(Math.abs(tilt.pitch))} degrees up or down. Stand it straight, with the lens at hip height, or the scale and angles drift.` : `The phone leans ${Math.round(Math.abs(tilt.roll))} degrees sideways. Stand it straight.`,
+    });
+  }
+
   if (brightness !== undefined) {
     checks.push({ id: 'light', label: 'Enough light', ok: brightness >= MIN_BRIGHTNESS, hint: 'It is dark. Turn on a light or film near a window.' });
   }
@@ -95,6 +114,6 @@ export function checkFraming(lm: LivePt[] | null, aspect: number, brightness?: n
   return {
     checks,
     ready: !first,
-    say: first ? first.hint : tip && found ? 'Good to go. Turning to about 45 degrees would give better joint angles, but the jump height works from here.' : 'Looks good. You can record now, or film with your camera app at 60 fps.',
+    say: first ? first.hint : tip && found ? (tip.id === 'angle' ? 'Good to go. Turning to about 45 degrees would give better joint angles, but the jump height works from here.' : `Good to go. ${tip.hint}`) : 'Looks good. You can record now, or film with your camera app at 60 fps.',
   };
 }
