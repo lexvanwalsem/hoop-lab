@@ -272,3 +272,14 @@ test('the reach method is touch height minus standing reach, scaled by the body'
   assert.ok(Math.abs(r.headline - 19) < 0.01);
   assert.equal(r.metrics[1].value, '179 cm');
 });
+
+// ---- measured frame rate ----
+
+import { snapFps } from '../src/framing.ts';
+
+test('a measured frame rate snaps to the usual one', () => {
+  assert.equal(snapFps(59.6), 60);
+  assert.equal(snapFps(29.4), 30);
+  assert.equal(snapFps(118), 120);
+  assert.equal(snapFps(41.2), 41); // not a usual rate: kept
+});

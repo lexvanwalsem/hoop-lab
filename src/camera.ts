@@ -1,6 +1,6 @@
 import { VERDICT } from './art';
 import type { Kind } from './analysis';
-import { checkFraming, type Check, type Framing, type Tilt } from './framing';
+import { checkFraming, snapFps, type Check, type Framing, type Tilt } from './framing';
 import { createLivePose } from './pose';
 import { keepAwake } from './native';
 
@@ -10,6 +10,20 @@ const GOOD = '#1eaa52';
 const SMOOTH = 3; // a check needs to hold in 2 of the last 3 looks, so the list does not flicker
 
 const NO_CAMERA = 'This browser cannot open the camera here. Camera access needs a secure address (https) or localhost.';
+
+/**
+ * Asks the camera for the settings that suit the analysis: the highest frame rate up to 60 (timing is read from frames), a motion hint
+ * so the encoder keeps frames instead of detail. A phone that cannot do 60 simply keeps what it has.
+ */
+async function tune(track: MediaStreamTrack): Promise<void> {
+  try {
+    (track as MediaStreamTrack & { contentHint: string }).contentHint = 'motion';
+    const max = (track.getCapabilities?.() as { frameRate?: { max?: number } } | undefined)?.frameRate?.max ?? 0;
+    if (max >= 60 && (track.getSettings().frameRate ?? 0) < 55) await track.applyConstraints({ frameRate: { ideal: 60 } });
+  } catch {
+    // the camera keeps its own settings
+  }
+}
 
 /** Full-screen live view with a checklist: is the person framed the way the analysis needs? Nothing is recorded or sent anywhere. */
 /** `kind` decides how much the side view matters. `onRecorded` receives a clip recorded here, with the frame rate the camera reported. */
@@ -201,7 +215,8 @@ export function openFramingCheck(opts: { kind?: Kind; askKind?: () => Promise<Ki
     }
     try {
       stage('Opening the camera...');
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 60 } }, audio: false });
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 60, min: 24 } }, audio: false });
+      await tune(stream.getVideoTracks()[0]);
       if (closed) {
         stream.getTracks().forEach((t) => t.stop());
         return;
@@ -215,7 +230,7 @@ export function openFramingCheck(opts: { kind?: Kind; askKind?: () => Promise<Ki
       flipBtn.hidden = false;
       recBtn.hidden = !opts.onRecorded || typeof MediaRecorder === 'undefined';
       const fps = Math.round(stream.getVideoTracks()[0].getSettings().frameRate ?? 30);
-      camNote.textContent = `Camera: ${video.videoWidth}x${video.videoHeight} at ${fps} fps. ${fps < 50 ? 'That is fine for jump height. Your camera app at 60 fps or more gives more exact takeoff and shot timing.' : 'Good for exact timing.'} Nothing is uploaded.`;
+      camNote.textContent = `Camera: ${video.videoWidth}x${video.videoHeight} at ${fps} fps. ${fps < 50 ? 'This phone gives only about 30 fps to apps in the browser. That is fine for jump height. Your camera app at 60 fps gives more exact takeoff and shot timing.' : 'The same timing as your camera app: exact to about 17 ms.'} Nothing is uploaded.`;
       if (!pose) {
         stage('Loading the body tracker...');
         pose = await createLivePose();
@@ -253,6 +268,21 @@ export function openFramingCheck(opts: { kind?: Kind; askKind?: () => Promise<Ki
     raf = requestAnimationFrame(tick);
   };
 
+  /** Counts the frames the camera really delivers while recording, so the analysis uses the true frame rate and not the requested one. */
+  let seen = { frames: 0, first: 0, last: 0 };
+  const watchFrames = (): void => {
+    seen = { frames: 0, first: 0, last: 0 };
+    const v = video as HTMLVideoElement & { requestVideoFrameCallback?: (cb: (now: number) => void) => number };
+    if (!v.requestVideoFrameCallback) return;
+    const on = (now: number): void => {
+      if (!seen.first) seen.first = now;
+      seen.last = now;
+      seen.frames++;
+      if (recorder && recorder.state === 'recording') v.requestVideoFrameCallback!(on);
+    };
+    v.requestVideoFrameCallback(on);
+  };
+
   const beginRecording = (): void => {
     const mime = pickMime();
     const chunks: Blob[] = [];
@@ -264,12 +294,14 @@ export function openFramingCheck(opts: { kind?: Kind; askKind?: () => Promise<Ki
     rec.onstop = () => {
       const type = rec.mimeType || mime || 'video/webm';
       const file = new File(chunks, `recording-${new Date().toISOString().slice(0, 10)}.${type.includes('mp4') ? 'mp4' : 'webm'}`, { type });
-      const fps = Math.round(stream?.getVideoTracks()[0]?.getSettings().frameRate ?? 30);
+      const asked = stream?.getVideoTracks()[0]?.getSettings().frameRate ?? 30;
+      const fps = snapFps(seen.frames > 10 && seen.last > seen.first ? ((seen.frames - 1) * 1000) / (seen.last - seen.first) : asked);
       const held = tilt;
       close();
       opts.onRecorded?.(file, fps, held);
     };
     rec.start();
+    watchFrames();
     let seconds = 0;
     recBtn.textContent = 'Stop and analyze';
     recBtn.classList.add('primary');

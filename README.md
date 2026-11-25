@@ -57,8 +57,7 @@ finds your joints in every frame, finds each jump or shot in the clip and measur
 - **Framing check:** a live camera view that tracks your body and tells you what to fix before you film: whole body in
   frame, big enough with room to jump, turned about 45 degrees (required for a shot, only advised for a jump, whose height works from any
   angle; fully sideways hides your far arm and leg from the tracker), enough light. You can record right there with a 5 second countdown, and the clip goes straight into Analyze.
-  A clip recorded in the browser is often 30 fps and compressed, so for the most exact timing film with your camera app
-  at 60 fps or more and choose the file.
+  The app asks the phone for 60 fps and counts the frames it really gets, so the analysis uses the true frame rate. Some phones only give 30 fps to a browser; then film with your camera app at 60 fps and choose the file.
 - **Built for the phone:** lists of cards become swipeable rows with dots, guide sections fold open one at a time, and long
   tables show the latest rows first, so there is no endless scrolling.
 - **Correct it by hand:** the takeoff and landing are found automatically; if they are off, adjust them frame by frame and the result and dashboard update. A clip the tracker cannot follow can be measured entirely by hand from the flight time.

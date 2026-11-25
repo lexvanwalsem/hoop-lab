@@ -117,3 +117,10 @@ export function checkFraming(lm: LivePt[] | null, aspect: number, brightness?: n
     say: first ? first.hint : tip && found ? (tip.id === 'angle' ? 'Good to go. Turning to about 45 degrees would give better joint angles, but the jump height works from here.' : `Good to go. ${tip.hint}`) : 'Looks good. You can record now, or film with your camera app at 60 fps.',
   };
 }
+
+/** A measured frame rate rounded to the usual one it is meant to be (59.7 is 60), otherwise to the nearest whole number. */
+export function snapFps(measured: number): number {
+  const usual = [24, 25, 30, 50, 60, 90, 120, 240];
+  const near = usual.find((u) => Math.abs(measured - u) <= u * 0.06);
+  return near ?? Math.max(1, Math.round(measured));
+}
