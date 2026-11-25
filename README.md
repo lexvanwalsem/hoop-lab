@@ -65,7 +65,7 @@ finds your joints in every frame, finds each jump or shot in the clip and measur
 - **Reach test:** the classic Vertec-style measurement by hand: standing reach against a wall and the highest touch of the jump, read off the same picture with the scale from your own height.
 - **Your own scale:** drag two lines on a frame where you stand tall, from the top of your head to your soles. The app learns your nose-to-ankle proportion and uses it for every analysis, instead of the average.
 - **Phone tilt:** a phone that leans sideways is turned back automatically, and the framing check reads the phone's own tilt sensor and warns when it is tipped up or down.
-- **Three tabs:** Today (your charts, with quick Record and Upload buttons), Analyze (swipe to the test, read how to film it right under it, then record or choose a video) and Training (exercises you can log with one tap, your volume, plus how to jump higher).
+- **Three tabs:** Today (your charts, and once you have results quick Record and Upload buttons that land in Analyze with your last test filled in), Analyze (swipe to the test, read how to film it right under it, then record or choose a video) and Training (exercises you can log with one tap, your volume, plus how to jump higher).
 
 <p align="center">
   <img src="docs/result.png" alt="Result of one analyzed shot, with every metric on a range gauge and the advice that follows (demo data)" width="900">

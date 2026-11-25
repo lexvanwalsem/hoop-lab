@@ -13,8 +13,10 @@ const NO_CAMERA = 'This browser cannot open the camera here. Camera access needs
 
 /** Full-screen live view with a checklist: is the person framed the way the analysis needs? Nothing is recorded or sent anywhere. */
 /** `kind` decides how much the side view matters. `onRecorded` receives a clip recorded here, with the frame rate the camera reported. */
-export function openFramingCheck(opts: { kind?: Kind; onRecorded?: (file: File, fps: number, tilt?: Tilt) => void } = {}): void {
-  const turn = opts.kind === 'shot' ? 'required' : 'advised';
+export function openFramingCheck(opts: { kind?: Kind; askKind?: () => Promise<Kind | null>; onRecorded?: (file: File, fps: number, tilt?: Tilt) => void } = {}): void {
+  let kind = opts.kind;
+  const turn = (): 'required' | 'advised' => (kind === 'shot' ? 'required' : 'advised');
+  const KIND_NAME = { standing: 'Standing jump', dunk: 'Dunk approach jump', shot: 'Jump shot' };
   if (document.querySelector('.camcheck')) return;
   const opener = document.activeElement as HTMLElement | null;
   const root = document.createElement('div');
@@ -30,6 +32,7 @@ export function openFramingCheck(opts: { kind?: Kind; onRecorded?: (file: File, 
     </div>
     <aside class="cam-panel">
       <div class="row between"><h2>Framing check</h2><button class="btn small" data-close>Close</button></div>
+      <p class="cam-kind" data-kindline hidden><span data-kindname></span> <button class="linkbtn" data-kind type="button">Change</button></p>
       <p class="cam-say" data-say role="status">Stand where you will jump, with the phone where you will film from.</p>
       <ul class="cam-checks" data-checks></ul>
       <div class="row"><button class="btn primary" data-rec hidden>Record</button><button class="btn small" data-flip hidden>Flip camera</button></div>
@@ -50,6 +53,19 @@ export function openFramingCheck(opts: { kind?: Kind; onRecorded?: (file: File, 
   const recBtn = $<HTMLButtonElement>('[data-rec]');
   const countEl = $('[data-count]');
   const camNote = $('[data-camnote]');
+  const paintKind = (): void => {
+    $('[data-kindline]').hidden = !kind;
+    if (kind) $('[data-kindname]').textContent = `Testing: ${KIND_NAME[kind]}`;
+    $('[data-kind]').hidden = !opts.askKind;
+  };
+  paintKind();
+  $('[data-kind]').onclick = () =>
+    void opts.askKind?.().then((k) => {
+      if (!k) return;
+      kind = k;
+      recent.length = 0;
+      paintKind();
+    });
   const sample = document.createElement('canvas');
   sample.width = 32;
   sample.height = 18;
@@ -169,7 +185,7 @@ export function openFramingCheck(opts: { kind?: Kind; onRecorded?: (file: File, 
       lastLight = now;
     }
     const lm = pose.detect(video);
-    const f = settled(checkFraming(lm, video.videoWidth / video.videoHeight, light, turn, tilt));
+    const f = settled(checkFraming(lm, video.videoWidth / video.videoHeight, light, turn(), tilt));
     draw(lm, f.ready);
     paintList(f);
   };

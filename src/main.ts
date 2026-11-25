@@ -518,7 +518,7 @@ function dashboard(view: HTMLElement): void {
 
     <div class="wrap">
       ${isDemo ? `<div class="demo-bar rise"><span class="chip">Demo data</span><span class="muted small">These numbers are made up. Analyze a video to see your own.</span><button class="btn small" id="clearDemo">Clear demo data</button></div>` : ''}
-      ${data.sessions.length ? '' : `<section class="section rise"><div class="tile"><div class="welcome"><div class="stack"><h2>Start here</h2><p class="muted">Film a jump or a shot, upload it, and get your numbers plus what to work on.</p><div class="row"><button class="btn primary" data-go="analyze">How to film</button><button class="btn" id="loadDemo">Try with demo data</button></div></div>${jumpFigure()}</div></div></section>`}
+      ${data.sessions.length ? '' : `<section class="section rise"><div class="tile"><div class="welcome"><div class="stack"><h2>Start here</h2><p class="muted">Three steps: pick the test, film it, analyze it. You get your numbers and what to work on.</p><div class="row"><button class="btn primary" data-go="analyze">Test yourself</button><button class="btn" id="loadDemo">Try with demo data</button></div></div>${jumpFigure()}</div></div></section>`}
 
       <section class="section${hide}">
         <div class="section-head rise"><h2>Trend</h2>
@@ -546,25 +546,18 @@ function dashboard(view: HTMLElement): void {
       </section>
       </details>
     </div>
-    <div class="fab"><button class="btn primary big" id="fabRec" type="button">Record</button><button class="btn big" id="fabUpload" type="button">Upload</button><input id="fabFile" type="file" accept="video/*,.mp4,.mov,.m4v,.webm" hidden></div>`;
-  const fabFile = view.querySelector<HTMLInputElement>('#fabFile')!;
-  view.querySelector<HTMLButtonElement>('#fabUpload')!.onclick = () => fabFile.click();
-  view.querySelector<HTMLButtonElement>('#fabRec')!.onclick = async () => {
-    const k = await askKind('What are you recording?');
-    if (!k) return;
-    selKind = k;
-    openFramingCheck({ kind: k, onRecorded: recorded });
-  };
-  fabFile.onchange = async () => {
-    const f = fabFile.files?.[0];
-    fabFile.value = '';
-    if (!f) return;
-    const k = await askKind('What is in this video?');
-    if (!k) return;
-    selKind = k;
-    recorded(f);
-  };
-
+    ${data.sessions.length ? '<div class="fab"><button class="btn primary big" id="fabRec" type="button">Record</button><button class="btn big" id="fabUpload" type="button">Upload</button><input id="fabFile" type="file" accept="video/*,.mp4,.mov,.m4v,.webm" hidden></div>' : ''}`;
+  // shortcuts for people who know the app: they skip the questions and land in Analyze with the last test filled in
+  const fabFile = view.querySelector<HTMLInputElement>('#fabFile');
+  if (fabFile) {
+    view.querySelector<HTMLButtonElement>('#fabRec')!.onclick = () => openFramingCheck({ kind: selKind, askKind: pickKind, onRecorded: recorded });
+    view.querySelector<HTMLButtonElement>('#fabUpload')!.onclick = () => fabFile.click();
+    fabFile.onchange = () => {
+      const f = fabFile.files?.[0];
+      fabFile.value = '';
+      if (f) recorded(f);
+    };
+  }
   view.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => (b.onclick = () => navigate(b.dataset.go as Tab)));
   view.querySelectorAll<HTMLButtonElement>('[data-sid]').forEach((b) => (b.onclick = () => (location.hash = `session/${b.dataset.sid}`)));
   const installBtn = view.querySelector<HTMLButtonElement>('#installBtn');
@@ -668,7 +661,25 @@ function dashboard(view: HTMLElement): void {
 
 // ---------- analyze ----------
 
-let selKind: Kind = 'standing';
+/** The test you did last is the one you probably do next, so it is remembered. */
+const KIND_KEY = 'hooplab.kind';
+function loadKind(): Kind {
+  try {
+    const v = localStorage.getItem(KIND_KEY);
+    return v === 'dunk' || v === 'shot' ? v : 'standing';
+  } catch {
+    return 'standing';
+  }
+}
+function setKind(k: Kind): void {
+  selKind = k;
+  try {
+    localStorage.setItem(KIND_KEY, k);
+  } catch {
+    // it just is not remembered
+  }
+}
+let selKind: Kind = loadKind();
 let chosen: { file: File; video: HTMLVideoElement; info: VideoInfo; tilt?: Tilt } | null = null;
 
 /** A clip recorded in the framing view: it waits here until the Analyze page can take it. */
@@ -809,12 +820,12 @@ function analyze(view: HTMLElement): void {
     if (!chosen) return;
     const i = chosen.info;
     const mins = Math.max(1, Math.round(estimateSeconds(i, selKind) / 60));
-    $('info').innerHTML = `<span class="chip good">${esc(chosen.file.name)}</span><span class="chip">${i.width}x${i.height}</span><span class="chip">${i.duration.toFixed(1)} s</span>${fpsNote(i, selKind)}<span class="chip">about ${mins} min to analyze</span>${tiltNote(chosen.tilt)}`;
+    $('info').innerHTML = `<span class="chip">${KIND_LABEL[selKind]}</span><span class="chip good">${esc(chosen.file.name)}</span><span class="chip">${i.width}x${i.height}</span><span class="chip">${i.duration.toFixed(1)} s</span>${fpsNote(i, selKind)}<span class="chip">about ${mins} min to analyze</span>${tiltNote(chosen.tilt)}`;
   };
   renderInfo();
 
   view.querySelectorAll<HTMLButtonElement>('[data-k]').forEach((b) => (b.onclick = () => {
-    selKind = b.dataset.k as Kind;
+    setKind(b.dataset.k as Kind);
     view.querySelectorAll<HTMLElement>('[data-k]').forEach((x) => {
       x.classList.toggle('on', x === b);
       x.setAttribute('aria-pressed', String(x === b));
@@ -847,6 +858,14 @@ function analyze(view: HTMLElement): void {
       $('manual').hidden = true;
       $('drop').textContent = 'Choose another video';
       renderInfo();
+      // the next step is below: show it, and make the button easy to find
+      const needs = !Number($<HTMLInputElement>('height').value) || !Number($<HTMLInputElement>('weight').value);
+      const next = needs ? $('height') : $('run');
+      next.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+      if (!needs) {
+        $('run').classList.add('nudge');
+        setTimeout(() => $('run').classList.remove('nudge'), 1600);
+      }
     } catch (e) {
       job.failed = true;
       job.status = e instanceof Error ? e.message : String(e);
@@ -1297,6 +1316,13 @@ function settleGuide(root: HTMLElement): void {
 }
 
 /** A small choice for the quick buttons on the dashboard: what is in the video? Resolves to null when closed. */
+/** Used by the camera panel when you tap Change: remembers the choice. */
+async function pickKind(): Promise<Kind | null> {
+  const k = await askKind('What are you recording?');
+  if (k) setKind(k);
+  return k;
+}
+
 function askKind(title: string): Promise<Kind | null> {
   return new Promise((resolve) => {
     const el = document.createElement('div');
@@ -1427,7 +1453,7 @@ document.addEventListener('pointerdown', (e) => {
 });
 
 document.addEventListener('click', (e) => {
-  if ((e.target as Element).closest('[data-cam]')) openFramingCheck({ kind: tab === 'analyze' ? selKind : undefined, onRecorded: recorded });
+  if ((e.target as Element).closest('[data-cam]')) openFramingCheck({ kind: selKind, askKind: pickKind, onRecorded: recorded });
 });
 
 // Offline support and durable storage. Only in the production build: during development a cache gets in the way.

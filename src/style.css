@@ -769,3 +769,10 @@ button, .tabs, .pick, .btn, summary, .chip { -webkit-user-select: none; user-sel
 .section:has(.sessions) { padding-bottom: 0; }
 details.guide > summary h2 { flex: 0 1 auto; }
 @media (max-width: 700px) { .fold { margin-top: 8px; } }
+
+/* ---------- the quick path: what is being tested, and the next step ---------- */
+.cam-kind { margin: 0; font-weight: 500; }
+.linkbtn { border: 0; background: transparent; color: inherit; text-decoration: underline; font: inherit; cursor: pointer; padding: 4px 8px; }
+.nudge { animation: nudge 1.4s var(--ease) 1; }
+@keyframes nudge { 0%, 100% { transform: none; } 20%, 60% { transform: scale(1.05); } 40%, 80% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .nudge { animation: none; } }
