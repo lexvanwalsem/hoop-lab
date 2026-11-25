@@ -720,3 +720,52 @@ button, .tabs, .pick, .btn, summary, .chip { -webkit-user-select: none; user-sel
 @media (min-width: 701px) { .pickkind { align-items: center; } .pk-card { border-radius: 20px; } }
 .fold-title { display: none; }
 @media (min-width: 701px) { .fold-title { display: flex; } }
+
+/* ---------- feel: press feedback, glass, one set of shapes ---------- */
+.pill, .pick, .tab, .srow, .rec, .ex { transition: transform var(--t-fast) var(--ease), background var(--t-fast), border-color var(--t-fast), color var(--t-fast); }
+.btn:active, .pill:active, .pick:active, .tab:active, .srow:active { transform: scale(0.97); }
+
+/* the quick buttons: glass over the page, right above the tab bar */
+.fab .btn { -webkit-backdrop-filter: blur(20px) saturate(1.6); backdrop-filter: blur(20px) saturate(1.6); }
+.fab .btn:not(.primary) { background: color-mix(in srgb, var(--bg) 62%, transparent); border-color: color-mix(in srgb, var(--fg) 16%, transparent); color: var(--fg); }
+.fab .btn.primary { background: color-mix(in srgb, var(--fg) 88%, transparent); border-color: transparent; color: var(--bg); }
+
+/* centred cards and rows of titles */
+.rec { text-align: center; }
+.rec ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.fold > summary, details.guide > summary, .more > summary { justify-content: center; text-align: center; gap: 12px; }
+.sessions .srow:last-child { box-shadow: none; }
+.fold + .fold, .sessions + .fold { margin-top: 0; }
+
+/* the page you do things on: one column, in order */
+.col { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 420px; margin-inline: auto; text-align: center; }
+.col .field, .col .check { text-align: left; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.busy { display: flex; align-items: center; gap: 16px; padding-top: 8px; }
+.more > summary { cursor: pointer; list-style: none; padding: 12px; color: var(--muted); font-weight: 500; }
+.more > summary::-webkit-details-marker { display: none; }
+.more[open] > summary { color: var(--fg); }
+.more .stack { padding-bottom: 8px; }
+.empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 24px 16px; text-align: center; }
+
+/* exercises */
+.note { max-width: 520px; margin: 0 auto 16px; text-align: center; }
+.exlist { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.ex { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 20px 16px; border-radius: var(--radius-card); background: var(--surface); text-align: center; }
+.ex h3 { font: 700 22px/1.1 var(--display); text-transform: uppercase; }
+.ex .chips, .ex .row { justify-content: center; }
+.ex-how { width: 100%; }
+.ex-how > summary { cursor: pointer; list-style: none; padding: 6px; color: var(--muted); font-size: 14px; text-decoration: underline; }
+.ex-how > summary::-webkit-details-marker { display: none; }
+.ex-how ul { margin: 8px 0 0; padding-left: 18px; text-align: left; font-size: 14px; color: var(--muted); }
+.ex-how li { margin-bottom: 6px; }
+.ex .btn.small { min-height: 40px; }
+.toast.brief { justify-content: center; animation: toastin var(--t-base) var(--ease); }
+@keyframes toastin { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@media (min-width: 701px) { .toast.brief { left: 50%; right: auto; transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .btn:active, .pill:active, .pick:active, .tab:active, .srow:active { transform: none; } .toast.brief { animation: none; } }
+.fab .btn.primary { background: var(--fg); color: var(--bg); }
+.fold > summary { font: 500 24px/1.2 var(--body); text-transform: none; letter-spacing: 0; }
+.section:has(.sessions) { padding-bottom: 0; }
+details.guide > summary h2 { flex: 0 1 auto; }
+@media (max-width: 700px) { .fold { margin-top: 8px; } }

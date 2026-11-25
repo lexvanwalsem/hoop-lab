@@ -75,7 +75,7 @@ export const setups: Section = {
 };
 
 export const measuring: Section = {
-  title: 'How the jump height is measured',
+  title: 'How the height is measured',
   intro: 'Simple physics: the longer you stay in the air, the higher you went.',
   layout: 'steps',
   items: [

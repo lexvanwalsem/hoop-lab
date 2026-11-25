@@ -67,3 +67,25 @@ export function watchUpdates(): void {
     document.body.append(bar);
   });
 }
+
+// ---------- small feedback ----------
+
+/** A short message at the bottom that goes away by itself. */
+export function toast(text: string): void {
+  document.querySelector('.toast.brief')?.remove();
+  const bar = document.createElement('div');
+  bar.className = 'toast brief';
+  bar.setAttribute('role', 'status');
+  bar.textContent = text;
+  document.body.append(bar);
+  setTimeout(() => bar.remove(), 2400);
+}
+
+/** A tiny tick on a tap, where the phone allows it (Android). iPhones do not offer vibration to web pages. */
+export function tick(): void {
+  try {
+    navigator.vibrate?.(8);
+  } catch {
+    // no haptics here
+  }
+}

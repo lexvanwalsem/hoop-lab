@@ -14,7 +14,8 @@ import { exportBackup, importBackup, load, newId, save, sortByDate, today, type 
 import { probeVideo, type VideoInfo } from './video';
 import { openFramingCheck } from './camera';
 import { MAX_PITCH, MAX_ROLL, type Tilt } from './framing';
-import { installHelp, keepAwake, watchUpdates } from './native';
+import { installHelp, keepAwake, tick, toast, watchUpdates } from './native';
+import { EXERCISES, GROUP_LABEL, GROUP_NOTE, type Exercise, type Group } from './exercises';
 import { clearPhotos, deletePhotos, getPhotoUrl, keepPhotos, savePhotos, setKeepPhotos } from './photos';
 import { snapSvg } from './snapview';
 import { buildSnapshots, type Snap } from './snapshots';
@@ -48,7 +49,7 @@ let inked = false;
 
 /** Announcement bar, header and tabs are built once, so they never flicker or move when you switch pages. */
 function shell(): void {
-  const tabs: [Tab, string][] = [['dashboard', 'Today'], ['analyze', 'Record'], ['log', 'Training']];
+  const tabs: [Tab, string][] = [['dashboard', 'Today'], ['analyze', 'Analyze'], ['log', 'Training']];
   app.innerHTML = `<header><div class="wrap"><a class="brand" href="#dashboard" aria-label="Hoop Lab, home">Hoop Lab<b>.</b></a><nav class="tabs" aria-label="Pages"><i class="tab-ink no-anim"></i>${tabs
       .map(([id, label]) => `<button class="tab" data-tab="${id}" aria-label="${label}">${icon(TAB_ICON[id], 22)}<span>${label}</span></button>`)
       .join('')}</nav><div class="head-right"><button class="jobpill" id="jobpill" hidden></button></div></div></header>
@@ -653,7 +654,12 @@ function dashboard(view: HTMLElement): void {
     }
     const hex = css(sel === 'standing' ? '--jump' : sel === 'dunk' ? '--dunk' : '--shot');
     const series: Series[] = [{ label: KIND_SHORT[sel], kind: sel, color: hex }];
-    if (data.sessions.some((s) => s.kind === sel)) whenVisible(canvas, () => charts.push(trendChart(canvas, data.sessions, series, sel === 'shot' ? '' : 'cm', sel === 'standing' ? goal : 0)));
+    const mine = data.sessions.filter((s) => s.kind === sel);
+    if (mine.length === 1) {
+      box.innerHTML = `<div class="empty"><div class="numeral md">${mine[0].headline.toFixed(0)}<small>${sel === 'shot' ? '/100' : 'cm'}</small></div><p class="muted">Your first result. The trend starts with the second one.</p></div>`;
+      return;
+    }
+    if (mine.length) whenVisible(canvas, () => charts.push(trendChart(canvas, data.sessions, series, sel === 'shot' ? '' : 'cm', sel === 'standing' ? goal : 0)));
     else box.innerHTML = '<p class="muted">No data yet. Analyze a video to start your trend.</p>';
   };
   view.querySelectorAll<HTMLButtonElement>('[data-t]').forEach((b) => (b.onclick = () => draw(b.dataset.t as typeof trendSel)));
@@ -692,35 +698,41 @@ function tiltNote(t?: Tilt): string {
 
 function analyze(view: HTMLElement): void {
   view.innerHTML = `
-    <section class="band"><div class="wrap"><div class="stack rise" style="gap:16px"><div class="kicker">Record</div><h1 class="display">Test yourself</h1><p class="sub" style="max-width:520px">Record or upload a video of a jump or a shot. Body tracking measures it and tells you what to work on.</p></div></div></section>
+    <section class="band"><div class="wrap"><div class="stack rise" style="gap:16px"><div class="kicker">Analyze</div><h1 class="display">Test yourself</h1><p class="sub" style="max-width:520px">Record or upload a video of a jump or a shot. Body tracking measures it and tells you what to work on.</p></div></div></section>
     <div class="wrap">
       <section class="section"><div class="section-head rise"><h2>1. What are you testing?</h2></div>
         <div class="picker rise" id="kinds">${(['standing', 'dunk', 'shot'] as Kind[]).map((k) => `<button class="pick ${k} ${k === selKind ? 'on' : ''}" data-k="${k}" aria-pressed="${k === selKind}">${icon(KIND_ICON[k], 32)}<span><span class="name">${KIND_LABEL[k]}</span><p>${KIND_DESC[k]}</p></span></button>`).join('')}</div></section>
 
       <div class="guide-grid" id="kindguide"></div>
 
-      <section class="section"><div class="section-head rise"><h2>2. Record or choose a video</h2></div>
-        <div class="grid g21">
-          <div class="tile stack rise">
-            <button class="btn primary big" data-cam>Record with the camera</button>
-            <button class="btn big" id="drop" type="button">${chosen ? 'Choose another video' : 'Choose a video'}</button>
-            <p class="muted small">Pick a clip from your camera roll or your files.</p>
-            <input id="file" type="file" accept="video/*,.mp4,.mov,.m4v,.webm" hidden>
-            <div id="info" class="chips"></div>
-          </div>
-          <div class="tile stack rise">
-            <label class="field">Height (cm)<input id="height" type="number" min="120" max="240" value="${data.heightCm || ''}" placeholder="193"></label>
-            <label class="field">Weight (kg)<input id="weight" type="number" min="30" max="200" value="${data.weightKg || ''}" placeholder="95"></label>
-            <p class="muted small">They set the scale and the power estimate, so use your real values.</p>
-            <p class="muted small" id="scaleNote"></p>
-            <button class="btn small" id="calBtn" type="button" hidden>Set my scale from the video</button>
-            <label class="check"><input type="checkbox" id="keepPhotos"${keepPhotos() ? ' checked' : ''}><span>Keep a photo of each key moment<small class="muted">Stored on this device only, about 25 KB each, not in backups. Shows your own body with the angles on it.</small></span></label>
-            <button id="run" class="btn primary big push">Analyze</button>
-          </div>
+      <section class="section"><div class="section-head rise"><h2>2. Add a video</h2></div>
+        <div class="col rise">
+          <button class="btn primary big" data-cam>Record with the camera</button>
+          <button class="btn big" id="drop" type="button">${chosen ? 'Choose another video' : 'Choose a video'}</button>
+          <p class="muted small">Or pick a clip from your camera roll or your files.</p>
+          <input id="file" type="file" accept="video/*,.mp4,.mov,.m4v,.webm" hidden>
+          <div id="info" class="chips"></div>
         </div></section>
 
-      <section class="section"><div class="section-head rise"><h2>3. Analysis</h2></div>
-        <div class="tile busy rise"><div class="numeral md" id="pct">0<small>%</small></div><div class="stack" style="flex:1;min-width:0"><div class="meter"><div id="pbar" style="width:0"></div></div><p id="status" class="muted" role="status">Choose a video to begin.</p><div class="row"><button class="btn small" id="cancel" hidden>Cancel</button><button class="btn small" id="manualBtn" hidden>Measure by hand</button><button class="btn small" id="reachBtn" hidden>Measure reach</button></div></div></div></section>
+      <section class="section"><div class="section-head rise"><h2>3. Analyze</h2></div>
+        <div class="col rise">
+          <div class="two">
+            <label class="field">Height (cm)<input id="height" type="number" min="120" max="240" value="${data.heightCm || ''}" placeholder="193"></label>
+            <label class="field">Weight (kg)<input id="weight" type="number" min="30" max="200" value="${data.weightKg || ''}" placeholder="95"></label>
+          </div>
+          <p class="muted small">They set the scale and the power estimate, so use your real values.</p>
+          <p class="muted small" id="scaleNote"></p>
+          <label class="check"><input type="checkbox" id="keepPhotos"${keepPhotos() ? ' checked' : ''}><span>Keep a photo of each key moment<small class="muted">Stored on this device only, about 25 KB each, not in backups.</small></span></label>
+          <button id="run" class="btn primary big">Analyze</button>
+          <div class="busy" id="busy" hidden><div class="numeral md" id="pct">0<small>%</small></div><div class="stack" style="flex:1;min-width:0"><div class="meter"><div id="pbar" style="width:0"></div></div><p id="status" class="muted" role="status">Choose a video to begin.</p><div class="row"><button class="btn small" id="cancel" hidden>Cancel</button></div></div></div>
+          <details class="more" id="tools" hidden><summary>More ways to measure</summary>
+            <div class="stack">
+              <button class="btn small" id="calBtn" type="button" hidden>Set my scale from the video</button>
+              <button class="btn small" id="manualBtn" type="button" hidden>Measure by hand</button>
+              <button class="btn small" id="reachBtn" type="button" hidden>Measure reach</button>
+            </div>
+          </details>
+        </div></section>
 
       <section class="section" id="calib" hidden><div class="section-head rise"><h2>Set your scale</h2></div>
         <div class="tile stack rise">
@@ -772,6 +784,8 @@ function analyze(view: HTMLElement): void {
     run.textContent = job.running ? 'Analyzing...' : 'Analyze';
     $('cancel').hidden = !job.running;
     $('manualBtn').hidden = !chosen || job.running;
+    $('busy').hidden = !chosen && !job.running && !job.failed;
+    $('tools').hidden = !chosen || job.running;
     $('calBtn').hidden = !chosen || job.running;
     $('reachBtn').hidden = !chosen || job.running;
     if (job.results && job.video && job.pose && job.results !== shown && !job.running) {
@@ -1304,13 +1318,19 @@ function askKind(title: string): Promise<Kind | null> {
 
 // ---------- training log ----------
 
-const SUGGESTIONS = ['Back squat', 'Trap-bar deadlift', 'Romanian deadlift', 'Split squat', 'Box jump', 'Depth jump', 'Pogo hops', 'Calf raise', 'Jump squat', 'Form shooting', 'Free throws'];
+let exGroup: Group = 'jumps';
+
+function exerciseCard(e: Exercise): string {
+  const per = e.per ? ` ${e.per}` : '';
+  return `<article class="ex"><h3>${esc(e.name)}</h3><div class="chips"><span class="chip">${e.level}</span><span class="chip">${e.sets} x ${e.reps}${per}</span></div><p class="muted small">${esc(e.why)}</p><details class="ex-how"><summary>How to do it</summary><ul>${e.cues.map((c) => `<li>${esc(c)}</li>`).join('')}</ul></details><div class="row"><button class="btn small primary" data-log="${esc(e.name)}">Log ${e.sets} x ${e.reps}</button><a class="btn small" href="${exampleUrl(e.name)}" target="_blank" rel="noopener noreferrer">Watch</a></div></article>`;
+}
 
 function log(view: HTMLElement): void {
   const weekAgo = dayKey(new Date(Date.now() - 7 * 864e5));
   const week = data.exercises.filter((e) => e.date >= weekAgo);
   const sets = week.reduce((a, e) => a + e.sets, 0);
   const reps = week.reduce((a, e) => a + e.sets * e.reps, 0);
+  const groups = Object.keys(GROUP_LABEL) as Group[];
   view.innerHTML = `
     <section class="band"><div class="wrap">
       <div class="stack rise" style="gap:16px"><div class="kicker">Training</div><h1 class="display">Build the engine</h1></div>
@@ -1321,40 +1341,69 @@ function log(view: HTMLElement): void {
       </div>
     </div></section>
     <div class="wrap">
-      <section class="section"><div class="grid g21">
-        <div class="rise"><div class="section-head"><h2>Weekly volume</h2></div>${data.exercises.length ? '<div class="chartbox"><canvas id="vol"></canvas></div>' : '<p class="muted">Log exercises to see your weekly volume.</p>'}</div>
-        <div class="tile stack rise"><h2>Log an exercise</h2>
-          <div class="pills">${SUGGESTIONS.map((s) => `<button class="pill" data-s="${s}" data-sug>${s}</button>`).join('')}</div>
-          <form id="f" class="stack">
+      <section class="section"><div class="section-head rise"><h2>Exercises</h2><div class="pills" id="exgroups">${groups.map((g) => `<button class="pill ${g === exGroup ? 'on' : ''}" data-g="${g}" aria-pressed="${g === exGroup}">${GROUP_LABEL[g]}</button>`).join('')}</div></div>
+        <p class="muted small note rise" id="exnote"></p>
+        <div class="exlist" id="exlist"></div></section>
+
+      <section class="section"><div class="section-head rise"><h2>Weekly volume</h2></div>${data.exercises.length ? '<div class="chartbox rise"><canvas id="vol"></canvas></div>' : '<div class="empty rise"><p class="muted">Log an exercise above and your weekly volume shows up here.</p></div>'}</section>
+
+      <section class="section"><div class="section-head rise"><h2>History</h2></div>
+        ${data.exercises.length ? `<table><tr><th>Date</th><th>Exercise</th><th>Volume</th><th>Notes</th><th></th></tr>${data.exercises.slice().sort((a, b) => b.date.localeCompare(a.date)).map((e) => `<tr><td>${shortDate(e.date)}</td><td><b>${esc(e.name)}</b></td><td>${e.sets} x ${e.reps}</td><td class="muted">${esc(e.notes)}</td><td><button class="btn small" data-del="${e.id}">Delete</button></td></tr>`).join('')}</table>` : '<div class="empty rise"><p class="muted">Nothing logged yet.</p></div>'}
+      </section>
+
+      <details class="fold"><summary>Log your own exercise</summary>
+        <section class="section"><div class="section-head rise fold-title"><h2>Log your own exercise</h2></div>
+          <form id="f" class="col">
             <input name="name" placeholder="Exercise" required>
-            <div class="row" style="flex-wrap:nowrap"><input name="sets" type="number" min="1" placeholder="Sets" required><input name="reps" type="number" min="1" placeholder="Reps" required></div>
+            <div class="two"><input name="sets" type="number" min="1" placeholder="Sets" required><input name="reps" type="number" min="1" placeholder="Reps" required></div>
             <input name="notes" placeholder="Notes (load, how it felt)">
             <button class="btn primary big">Add</button>
-          </form></div>
-      </div></section>
-      <section class="section" style="padding-bottom:80px"><div class="section-head rise"><h2>History</h2></div>
-        ${data.exercises.length ? `<table><tr><th>Date</th><th>Exercise</th><th>Volume</th><th>Notes</th><th></th></tr>${data.exercises.slice().sort((a, b) => b.date.localeCompare(a.date)).map((e) => `<tr><td>${shortDate(e.date)}</td><td><b>${esc(e.name)}</b></td><td>${e.sets} x ${e.reps}</td><td class="muted">${esc(e.notes)}</td><td><button class="btn small" data-del="${e.id}">Delete</button></td></tr>`).join('')}</table>` : '<p class="muted">Nothing logged yet.</p>'}
-      </section>
+          </form></section>
+      </details>
+
       <details class="fold"${phoneQuery.matches ? '' : ' open'}><summary>How to jump higher</summary>
         <section class="section" style="padding-bottom:80px"><div class="section-head rise fold-title"><h2>How to jump higher</h2></div><div class="guide-grid">${guideHtml(jumpGuide, false)}</div></section>
       </details>
     </div>`;
   settleGuide(view);
+  const paintEx = (): void => {
+    view.querySelector<HTMLElement>('#exnote')!.textContent = GROUP_NOTE[exGroup];
+    view.querySelector<HTMLElement>('#exlist')!.innerHTML = EXERCISES.filter((e) => e.group === exGroup).map(exerciseCard).join('');
+    view.querySelectorAll<HTMLButtonElement>('#exgroups [data-g]').forEach((b) => {
+      b.classList.toggle('on', b.dataset.g === exGroup);
+      b.setAttribute('aria-pressed', String(b.dataset.g === exGroup));
+    });
+  };
+  paintEx();
+  view.querySelectorAll<HTMLButtonElement>('#exgroups [data-g]').forEach((b) => (b.onclick = () => {
+    exGroup = b.dataset.g as Group;
+    paintEx();
+  }));
+  // one tap logs the suggested sets and reps for today
+  view.querySelector<HTMLElement>('#exlist')!.onclick = (ev) => {
+    const btn = (ev.target as Element).closest<HTMLButtonElement>('[data-log]');
+    const ex = btn && EXERCISES.find((e) => e.name === btn.dataset.log);
+    if (!ex) return;
+    data.exercises.push({ id: newId(), date: today(), name: ex.name, sets: ex.sets, reps: ex.reps, notes: '' });
+    save(data);
+    toast(`Logged ${ex.sets} x ${ex.reps} ${ex.name}`);
+    void show('log', true);
+  };
   const volCanvas = view.querySelector<HTMLCanvasElement>('#vol');
   if (volCanvas) whenVisible(volCanvas, () => charts.push(volumeChart(volCanvas, weeksData())));
   const form = view.querySelector<HTMLFormElement>('#f')!;
-  view.querySelectorAll<HTMLButtonElement>('[data-s]').forEach((b) => (b.onclick = () => ((form.elements.namedItem('name') as HTMLInputElement).value = b.dataset.s!)));
   form.onsubmit = (ev) => {
     ev.preventDefault();
     const f = new FormData(form);
     data.exercises.push({ id: newId(), date: today(), name: String(f.get('name')), sets: Number(f.get('sets')), reps: Number(f.get('reps')), notes: String(f.get('notes') ?? '') });
     save(data);
-    show('log', true);
+    toast('Logged');
+    void show('log', true);
   };
   view.querySelectorAll<HTMLButtonElement>('[data-del]').forEach((b) => (b.onclick = () => {
     data.exercises = data.exercises.filter((e) => e.id !== b.dataset.del);
     save(data);
-    show('log', true);
+    void show('log', true);
   }));
 }
 
@@ -1371,6 +1420,10 @@ void Promise.race([
   }
   shell();
   void route();
+});
+
+document.addEventListener('pointerdown', (e) => {
+  if ((e.target as Element).closest('.btn.primary, .tab, .pill, .pick')) tick();
 });
 
 document.addEventListener('click', (e) => {
