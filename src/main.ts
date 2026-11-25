@@ -7,7 +7,7 @@ import './style.css';
 import { shortDate, trendChart, volumeChart, type Series } from './charts';
 import { analyzeJumps, analyzeShots, AVERAGE_NOSE_ANKLE, levelPose, manualJump, reachJump, scaleRatio, type Kind, type Metric, type Result } from './analysis';
 import { drillName, exampleUrl, recommend, type Rec } from './coach';
-import { filmingGuide, jumpGuide, measuring, setups, type Section } from './guide';
+import { guideFor, jumpGuide, type Section } from './guide';
 import { createLivePose, extractPose, type Pose } from './pose';
 import { demoData } from './demo';
 import { exportBackup, importBackup, load, newId, save, sortByDate, today, type Data, type Session, backupDue, lastBackup, markBackup } from './store';
@@ -23,7 +23,7 @@ import { gauge } from './gauge';
 
 const data: Data = load();
 const app = document.getElementById('app')!;
-type Tab = 'dashboard' | 'guide' | 'analyze' | 'log';
+type Tab = 'dashboard' | 'analyze' | 'log';
 let tab: Tab = 'dashboard';
 let charts: Chart[] = [];
 
@@ -43,12 +43,12 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').match
 
 // ---------- shell, navigation, motion ----------
 
-const TAB_ICON: Record<Tab, string> = { dashboard: 'dashboard', guide: 'film', analyze: 'analyze', log: 'dumbbell' };
+const TAB_ICON: Record<Tab, string> = { dashboard: 'dashboard', analyze: 'analyze', log: 'dumbbell' };
 let inked = false;
 
 /** Announcement bar, header and tabs are built once, so they never flicker or move when you switch pages. */
 function shell(): void {
-  const tabs: [Tab, string][] = [['dashboard', 'Today'], ['guide', 'Guide'], ['analyze', 'Analyze'], ['log', 'Training']];
+  const tabs: [Tab, string][] = [['dashboard', 'Today'], ['analyze', 'Record'], ['log', 'Training']];
   app.innerHTML = `<header><div class="wrap"><a class="brand" href="#dashboard" aria-label="Hoop Lab, home">Hoop Lab<b>.</b></a><nav class="tabs" aria-label="Pages"><i class="tab-ink no-anim"></i>${tabs
       .map(([id, label]) => `<button class="tab" data-tab="${id}" aria-label="${label}">${icon(TAB_ICON[id], 22)}<span>${label}</span></button>`)
       .join('')}</nav><div class="head-right"><button class="jobpill" id="jobpill" hidden></button></div></div></header>
@@ -59,8 +59,8 @@ function shell(): void {
 
 // ---------- routing: every page has an address, so reload, links and the back button work ----------
 
-const TABS: Tab[] = ['dashboard', 'guide', 'analyze', 'log'];
-const OLD_TABS: Record<string, Tab> = { jump: 'guide', filming: 'guide' }; // addresses from before the pages were merged
+const TABS: Tab[] = ['dashboard', 'analyze', 'log'];
+const OLD_TABS: Record<string, Tab> = { jump: 'analyze', filming: 'analyze', guide: 'analyze' }; // addresses from before the pages were merged
 
 function routeFromHash(): { tab: Tab; session?: string } {
   const h = location.hash.replace(/^#\/?/, '');
@@ -208,7 +208,6 @@ async function show(next: Tab, soft = false): Promise<void> {
   ({
     dashboard,
     analyze,
-    guide,
     log,
   })[tab](view);
   phoneLayout(view);
@@ -518,7 +517,7 @@ function dashboard(view: HTMLElement): void {
 
     <div class="wrap">
       ${isDemo ? `<div class="demo-bar rise"><span class="chip">Demo data</span><span class="muted small">These numbers are made up. Analyze a video to see your own.</span><button class="btn small" id="clearDemo">Clear demo data</button></div>` : ''}
-      ${data.sessions.length ? '' : `<section class="section rise"><div class="tile"><div class="welcome"><div class="stack"><h2>Start here</h2><p class="muted">Film a jump or a shot, upload it, and get your numbers plus what to work on.</p><div class="row"><button class="btn primary" data-go="guide">How to film</button><button class="btn" id="loadDemo">Try with demo data</button></div></div>${jumpFigure()}</div></div></section>`}
+      ${data.sessions.length ? '' : `<section class="section rise"><div class="tile"><div class="welcome"><div class="stack"><h2>Start here</h2><p class="muted">Film a jump or a shot, upload it, and get your numbers plus what to work on.</p><div class="row"><button class="btn primary" data-go="analyze">How to film</button><button class="btn" id="loadDemo">Try with demo data</button></div></div>${jumpFigure()}</div></div></section>`}
 
       <section class="section${hide}">
         <div class="section-head rise"><h2>Trend</h2>
@@ -546,12 +545,23 @@ function dashboard(view: HTMLElement): void {
       </section>
       </details>
     </div>
-    <div class="fab"><button class="btn primary big" data-cam>Record</button><button class="btn big" id="fabUpload" type="button">Upload</button><input id="fabFile" type="file" accept="video/*,.mp4,.mov,.m4v,.webm" hidden></div>`;
+    <div class="fab"><button class="btn primary big" id="fabRec" type="button">Record</button><button class="btn big" id="fabUpload" type="button">Upload</button><input id="fabFile" type="file" accept="video/*,.mp4,.mov,.m4v,.webm" hidden></div>`;
   const fabFile = view.querySelector<HTMLInputElement>('#fabFile')!;
   view.querySelector<HTMLButtonElement>('#fabUpload')!.onclick = () => fabFile.click();
-  fabFile.onchange = () => {
+  view.querySelector<HTMLButtonElement>('#fabRec')!.onclick = async () => {
+    const k = await askKind('What are you recording?');
+    if (!k) return;
+    selKind = k;
+    openFramingCheck({ kind: k, onRecorded: recorded });
+  };
+  fabFile.onchange = async () => {
     const f = fabFile.files?.[0];
-    if (f) recorded(f);
+    fabFile.value = '';
+    if (!f) return;
+    const k = await askKind('What is in this video?');
+    if (!k) return;
+    selKind = k;
+    recorded(f);
   };
 
   view.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => (b.onclick = () => navigate(b.dataset.go as Tab)));
@@ -682,14 +692,14 @@ function tiltNote(t?: Tilt): string {
 
 function analyze(view: HTMLElement): void {
   view.innerHTML = `
-    <section class="band"><div class="wrap"><div class="stack rise" style="gap:16px"><div class="kicker">Analyze</div><h1 class="display">Test yourself</h1><p class="sub" style="max-width:520px">Record or upload a video of a jump or a shot. Body tracking measures it and tells you what to work on.</p></div></div></section>
+    <section class="band"><div class="wrap"><div class="stack rise" style="gap:16px"><div class="kicker">Record</div><h1 class="display">Test yourself</h1><p class="sub" style="max-width:520px">Record or upload a video of a jump or a shot. Body tracking measures it and tells you what to work on.</p></div></div></section>
     <div class="wrap">
       <section class="section"><div class="section-head rise"><h2>1. What are you testing?</h2></div>
         <div class="picker rise" id="kinds">${(['standing', 'dunk', 'shot'] as Kind[]).map((k) => `<button class="pick ${k} ${k === selKind ? 'on' : ''}" data-k="${k}" aria-pressed="${k === selKind}">${icon(KIND_ICON[k], 32)}<span><span class="name">${KIND_LABEL[k]}</span><p>${KIND_DESC[k]}</p></span></button>`).join('')}</div></section>
 
-      <section class="section"><div class="section-head rise"><h2>2. Film yourself</h2></div>
-        <ol class="howto rise"><li>Prop your phone up 4-5 m away and stand <b>turned about 45 degrees</b> to it.</li><li>Check your framing, then record here or film with your camera app (60 fps is best).</li><li>Your clip loads here. Check your height and weight, then analyze.</li></ol>
-        <p class="why rise" id="why"></p>
+      <div class="guide-grid" id="kindguide"></div>
+
+      <section class="section"><div class="section-head rise"><h2>2. Record or choose a video</h2></div>
         <div class="grid g21">
           <div class="tile stack rise">
             <button class="btn primary big" data-cam>Record with the camera</button>
@@ -772,10 +782,16 @@ function analyze(view: HTMLElement): void {
   paintJob = paint;
   paint();
 
+  /** The guide of the chosen test, right under the swipe row. */
+  const renderGuide = (): void => {
+    const host = $('kindguide');
+    host.innerHTML = guideHtml(guideFor(selKind), true, false) + `<details class="tile guide"${phoneQuery.matches ? '' : ' open'}><summary><h2>What the camera should see</h2></summary>${framingPanel()}<div style="margin-top:16px"><button class="btn" data-cam>Check my framing with the camera</button></div></details>`;
+    settleGuide(host);
+    phoneLayout(host);
+  };
+
   const renderInfo = (): void => {
-    $('why').innerHTML = selKind === 'shot'
-      ? '<b>Why 45 degrees?</b> From the side you see your elbow and the arc, but the tracker loses your far arm and leg. From the front the elbow hides. At 45 degrees you get both.'
-      : '<b>Why 45 degrees?</b> Your knee and hip bend show best from the side, but the tracker loses your far leg when you stand fully sideways. At 45 degrees you get both. Jump height itself works from any angle.';
+    renderGuide();
     if (!chosen) return;
     const i = chosen.info;
     const mins = Math.max(1, Math.round(estimateSeconds(i, selKind) / 60));
@@ -1184,7 +1200,7 @@ function renderResult(out: HTMLElement, video: HTMLVideoElement, pose: Pose, r: 
     <section class="section"><div class="section-head rise"><h2>How to improve</h2></div>
       ${recs.length ? recCards(recs) : '<p class="muted">Nothing flagged. Keep it up and test again in 1-2 weeks.</p>'}
       ${r.tips.length ? `<p class="muted small" style="margin-top:16px"><b>Notes:</b> ${r.tips.map(esc).join(' ')}</p>` : ''}
-      ${isShot ? '' : '<div style="margin-top:20px"><button class="btn" data-go="guide">Open the guide</button></div>'}
+      ${isShot ? '' : '<div style="margin-top:20px"><button class="btn" data-go="log">How to jump higher</button></div>'}
     </section>`;
 
   out.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => (b.onclick = () => navigate(b.dataset.go as Tab)));
@@ -1240,22 +1256,8 @@ function renderResult(out: HTMLElement, video: HTMLVideoElement, pose: Pose, r: 
 
 // ---------- guides ----------
 
-let guideSel: 'jump' | 'shot' = 'jump';
-
-/** One guide with two tabs: jumping and shooting. The set-up of the camera is shared. */
-function guide(view: HTMLElement): void {
-  const [setup, standing, dunk, shot] = filmingGuide;
-  const sections = guideSel === 'jump' ? [setup, setups, standing, dunk, ...jumpGuide, measuring] : [setup, setups, shot];
-  const tabs = [['jump', 'Jumping'], ['shot', 'Shooting']] as const;
-  const seg = `<div class="pills guide-seg rise" role="group" aria-label="Guide">${tabs.map(([k, l]) => `<button class="pill ${k === guideSel ? 'on' : ''}" data-g="${k}" aria-pressed="${k === guideSel}">${l}</button>`).join('')}</div>`;
-  guidePage(view, 'Guide', guideSel === 'jump' ? 'How to film a jump, and how to jump higher.' : 'How to film a shot so the tracker reads it well.', seg, sections, framingPanel());
-  view.querySelectorAll<HTMLButtonElement>('[data-g]').forEach((b) => (b.onclick = () => {
-    guideSel = b.dataset.g as typeof guideSel;
-    void show('guide', true);
-  }));
-}
-
-function guidePage(view: HTMLElement, title: string, subtitle: string, seg: string, sections: Section[], lead = ''): void {
+/** The folding sections of a guide. On a phone they fold; on a larger screen everything stays open. */
+function guideHtml(sections: Section[], firstOpen: boolean, rise = true): string {
   const legend = [['strength', 'Strength', 'var(--jump)'], ['speed', 'Speed', 'var(--fg)'], ['plyo', 'Plyometrics', 'var(--shot)'], ['rest', 'Rest', 'var(--border)']];
   const body = (s: Section): string => {
     if (s.layout === 'steps') {
@@ -1266,20 +1268,38 @@ function guidePage(view: HTMLElement, title: string, subtitle: string, seg: stri
     }
     return `<div class="cards">${s.items.map((it) => `<div class="cardi"><div class="bub">${icon(it.icon ?? 'check', 24)}</div><h3>${esc(it.t)}</h3><p>${esc(it.d)}</p></div>`).join('')}</div>`;
   };
-  view.innerHTML = `
-    <section class="band guide-band plain"><div class="wrap"><h1 class="display rise">${esc(title)}</h1><p class="rise">${esc(subtitle)}</p>${seg}</div></section>
-    <div class="wrap"><div class="section guide-grid" style="padding-bottom:80px">
-      ${lead ? `<section class="tile lead rise"><h2>What the camera should see</h2>${lead}<div style="margin-top:16px"><button class="btn" data-cam>Check my framing with the camera</button></div></section>` : ''}
-      ${sections
-        .map((s, i) => {
-          const wide = s.layout === 'week' || (s.layout === 'cards' && s.items.length >= 5);
-          return `<details class="tile guide rise" style="${wide ? 'grid-column:1/-1' : ''}"${!phoneQuery.matches || i === 0 ? ' open' : ''}><summary><h2>${esc(s.title)}</h2></summary>${s.intro ? `<p class="intro">${esc(s.intro)}</p>` : ''}${body(s)}</details>`;
-        })
-        .join('')}
-    </div></div>`;
-  // sections only fold on a phone; on a larger screen everything stays open
-  view.querySelectorAll<HTMLElement>('details.guide > summary').forEach((s) => s.addEventListener('click', (e) => !phoneQuery.matches && e.preventDefault()));
-  if (window.matchMedia('(max-width: 900px)').matches) view.querySelectorAll<HTMLElement>('.guide').forEach((el) => (el.style.gridColumn = 'auto'));
+  return sections
+    .map((s, i) => {
+      const wide = s.layout === 'week' || (s.layout === 'cards' && s.items.length >= 5);
+      return `<details class="tile guide${rise ? ' rise' : ''}" style="${wide ? 'grid-column:1/-1' : ''}"${!phoneQuery.matches || (firstOpen && i === 0) ? ' open' : ''}><summary><h2>${esc(s.title)}</h2></summary>${s.intro ? `<p class="intro">${esc(s.intro)}</p>` : ''}${body(s)}</details>`;
+    })
+    .join('');
+}
+
+/** Folding sections only fold on a phone; on a larger screen a click on the heading does nothing. */
+function settleGuide(root: HTMLElement): void {
+  root.querySelectorAll<HTMLElement>('details.guide > summary').forEach((s) => (s.onclick = (e) => !phoneQuery.matches && e.preventDefault()));
+  if (window.matchMedia('(max-width: 900px)').matches) root.querySelectorAll<HTMLElement>('.guide').forEach((el) => (el.style.gridColumn = 'auto'));
+}
+
+/** A small choice for the quick buttons on the dashboard: what is in the video? Resolves to null when closed. */
+function askKind(title: string): Promise<Kind | null> {
+  return new Promise((resolve) => {
+    const el = document.createElement('div');
+    el.className = 'pickkind';
+    el.innerHTML = `<div class="pk-card" role="dialog" aria-label="${esc(title)}"><h2>${esc(title)}</h2>${(['standing', 'dunk', 'shot'] as Kind[]).map((k) => `<button class="btn big${k === selKind ? ' primary' : ''}" data-pk="${k}">${KIND_LABEL[k]}</button>`).join('')}<button class="btn small" data-pk="">Cancel</button></div>`;
+    const done = (k: Kind | null): void => {
+      el.remove();
+      resolve(k);
+    };
+    el.onclick = (e) => {
+      const t = (e.target as Element).closest<HTMLElement>('[data-pk]');
+      if (t) done((t.dataset.pk || null) as Kind | null);
+      else if (e.target === el) done(null);
+    };
+    document.body.append(el);
+    el.querySelector<HTMLElement>('button')!.focus();
+  });
 }
 
 // ---------- training log ----------
@@ -1315,7 +1335,11 @@ function log(view: HTMLElement): void {
       <section class="section" style="padding-bottom:80px"><div class="section-head rise"><h2>History</h2></div>
         ${data.exercises.length ? `<table><tr><th>Date</th><th>Exercise</th><th>Volume</th><th>Notes</th><th></th></tr>${data.exercises.slice().sort((a, b) => b.date.localeCompare(a.date)).map((e) => `<tr><td>${shortDate(e.date)}</td><td><b>${esc(e.name)}</b></td><td>${e.sets} x ${e.reps}</td><td class="muted">${esc(e.notes)}</td><td><button class="btn small" data-del="${e.id}">Delete</button></td></tr>`).join('')}</table>` : '<p class="muted">Nothing logged yet.</p>'}
       </section>
+      <details class="fold"${phoneQuery.matches ? '' : ' open'}><summary>How to jump higher</summary>
+        <section class="section" style="padding-bottom:80px"><div class="section-head rise fold-title"><h2>How to jump higher</h2></div><div class="guide-grid">${guideHtml(jumpGuide, false)}</div></section>
+      </details>
     </div>`;
+  settleGuide(view);
   const volCanvas = view.querySelector<HTMLCanvasElement>('#vol');
   if (volCanvas) whenVisible(volCanvas, () => charts.push(volumeChart(volCanvas, weeksData())));
   const form = view.querySelector<HTMLFormElement>('#f')!;

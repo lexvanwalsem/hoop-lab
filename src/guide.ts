@@ -178,3 +178,24 @@ export const jumpGuide: Section[] = [
     ],
   },
 ];
+
+/** The few things that matter when filming, the same for every test. */
+export const filmIt: Section = {
+  title: 'How to film it',
+  layout: 'steps',
+  items: [
+    { icon: 'camera', t: 'Fix the phone', d: 'Use a tripod or lean it on something solid at hip height. It must not move, and it should stand upright, not tipped up or down.' },
+    { icon: 'ruler', t: '4-5 m away', d: 'Keep the whole body in frame, feet to fingertips, including the top of the jump. Fill at least half of the frame height.' },
+    { icon: 'target', t: 'Turn about 45 degrees', d: 'Fully sideways hides your far arm and leg from the tracker, and from the front your knee and elbow bend do not show. At 45 degrees you get both. Jump height works from any angle.' },
+    { icon: 'clock', t: '60 fps or more', d: 'iPhone: Settings, Camera, Record Video, 1080p HD at 60 fps. Slow motion at 120 or 240 fps is fine. Do not edit and re-export at a lower frame rate.' },
+    { icon: 'sun', t: 'Light and clothing', d: 'Good light, a plain background, fitted clothes that contrast with it, shoes visible. Use the same camera spot every time so results compare.' },
+  ],
+};
+
+/** What to show under the chosen test: how to film it and what to do in front of the camera. */
+export function guideFor(kind: 'standing' | 'dunk' | 'shot'): Section[] {
+  const [, standing, dunk, shot] = filmingGuide;
+  if (kind === 'standing') return [filmIt, standing, setups, measuring];
+  if (kind === 'dunk') return [filmIt, dunk, measuring];
+  return [filmIt, shot];
+}

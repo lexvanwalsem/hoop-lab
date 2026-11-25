@@ -65,7 +65,7 @@ finds your joints in every frame, finds each jump or shot in the clip and measur
 - **Reach test:** the classic Vertec-style measurement by hand: standing reach against a wall and the highest touch of the jump, read off the same picture with the scale from your own height.
 - **Your own scale:** drag two lines on a frame where you stand tall, from the top of your head to your soles. The app learns your nose-to-ankle proportion and uses it for every analysis, instead of the average.
 - **Phone tilt:** a phone that leans sideways is turned back automatically, and the framing check reads the phone's own tilt sensor and warns when it is tipped up or down.
-- **Guides:** how to film so the numbers are good, and how to jump higher (technique, training, a simple week).
+- **Three tabs:** Today (your charts, with quick Record and Upload buttons), Record (swipe to the test, read how to film it right under it, then record or choose a video) and Training (the log, plus how to jump higher).
 
 <p align="center">
   <img src="docs/result.png" alt="Result of one analyzed shot, with every metric on a range gauge and the advice that follows (demo data)" width="900">
@@ -161,7 +161,7 @@ to Files, iCloud or Drive, or mail it to yourself. Import picks the file again f
 - Stay on one spot and stand still for 2 seconds at the start. Do not walk towards the camera: the tracker then mistakes the shifting floor for a jump. Good light, a plain background, fitted clothes, shoes visible.
 - Use the same camera spot every time so results are comparable.
 
-The in-app **Guide** page (tabs Jumping and Shooting) has the full version with diagrams.
+The **Record** tab shows how to film right under the test you pick, with diagrams.
 
 ## How it works
 
@@ -231,7 +231,7 @@ npm run build    # type check and production build into dist/
 | `src/video.ts` | Reads the frame rate from the MP4 or MOV header, probes the video |
 | `src/analysis.ts` | Calibration, jump and shot detection, metrics |
 | `src/coach.ts` | Advice and drills per flagged metric |
-| `src/guide.ts` | Content of the Guide page |
+| `src/guide.ts` | Content of the guides: how to film per test, and how to jump higher |
 | `src/store.ts` | Storage, validation, backup and import |
 | `src/demo.ts` | Sample data for `?demo` |
 | `src/charts.ts`, `src/gauge.ts`, `src/art.ts` | Charts, range gauges, icons and illustrations |
