@@ -5,7 +5,7 @@ import '@fontsource/barlow-condensed/700.css';
 import type { Chart } from 'chart.js';
 import './style.css';
 import { shortDate, trendChart, volumeChart, type Series } from './charts';
-import { analyzeJumps, analyzeShots, AVERAGE_NOSE_ANKLE, levelPose, manualJump, scaleRatio, type Kind, type Metric, type Result } from './analysis';
+import { analyzeJumps, analyzeShots, AVERAGE_NOSE_ANKLE, levelPose, manualJump, reachJump, scaleRatio, type Kind, type Metric, type Result } from './analysis';
 import { drillName, exampleUrl, recommend, type Rec } from './coach';
 import { filmingGuide, jumpGuide, measuring, setups, type Section } from './guide';
 import { createLivePose, extractPose, type Pose } from './pose';
@@ -710,7 +710,7 @@ function analyze(view: HTMLElement): void {
         </div></section>
 
       <section class="section"><div class="section-head rise"><h2>3. Analysis</h2></div>
-        <div class="tile busy rise"><div class="numeral md" id="pct">0<small>%</small></div><div class="stack" style="flex:1;min-width:0"><div class="meter"><div id="pbar" style="width:0"></div></div><p id="status" class="muted" role="status">Choose a video to begin.</p><div class="row"><button class="btn small" id="cancel" hidden>Cancel</button><button class="btn small" id="manualBtn" hidden>Measure by hand</button></div></div></div></section>
+        <div class="tile busy rise"><div class="numeral md" id="pct">0<small>%</small></div><div class="stack" style="flex:1;min-width:0"><div class="meter"><div id="pbar" style="width:0"></div></div><p id="status" class="muted" role="status">Choose a video to begin.</p><div class="row"><button class="btn small" id="cancel" hidden>Cancel</button><button class="btn small" id="manualBtn" hidden>Measure by hand</button><button class="btn small" id="reachBtn" hidden>Measure reach</button></div></div></div></section>
 
       <section class="section" id="calib" hidden><div class="section-head rise"><h2>Set your scale</h2></div>
         <div class="tile stack rise">
@@ -719,6 +719,17 @@ function analyze(view: HTMLElement): void {
           <input id="calscrub" type="range" min="0" max="1000" value="0" aria-label="Moment in the clip">
           <div class="row"><button class="btn" id="calReset" type="button">Back to average</button><button class="btn primary" id="calSave" type="button">Use these lines</button></div>
           <p class="muted" id="calOut" role="status"></p>
+        </div></section>
+
+      <section class="section" id="reach" hidden><div class="section-head rise"><h2>Measure reach</h2></div>
+        <div class="tile stack rise">
+          <p class="muted">The classic reach test. Stand at a wall or backboard with the phone on a tripod and do not move it. The wall and you must be at the same distance from the camera.</p>
+          <ol class="howto"><li>Pick a frame where you stand tall at the wall, arm up. Put the lines on your head, soles and fingertip, then tap step 1.</li><li>Pick the frame where your fingertip is highest in the jump. Move only the fingertip line, then tap step 2.</li></ol>
+          <div class="calbox" id="rbox"><div class="calline" data-l="head" style="top:12%"><i></i><span>Top of head</span></div><div class="calline" data-l="sole" style="top:88%"><i></i><span>Soles</span></div><div class="calline" data-l="finger" style="top:3%"><i></i><span>Fingertip</span></div></div>
+          <input id="rscrub" type="range" min="0" max="1000" value="0" aria-label="Moment in the clip">
+          <div class="row"><button class="btn" id="rStand" type="button">1. Standing reach</button><button class="btn" id="rTouch" type="button">2. Jump touch</button></div>
+          <p class="muted" id="rOut" role="status">Start with step 1.</p>
+          <button class="btn primary big" id="rSave" type="button" disabled>Save this jump</button>
         </div></section>
 
       <section class="section" id="manual" hidden><div class="section-head rise"><h2>Measure by hand</h2></div>
@@ -752,6 +763,7 @@ function analyze(view: HTMLElement): void {
     $('cancel').hidden = !job.running;
     $('manualBtn').hidden = !chosen || job.running;
     $('calBtn').hidden = !chosen || job.running;
+    $('reachBtn').hidden = !chosen || job.running;
     if (job.results && job.video && job.pose && job.results !== shown && !job.running) {
       shown = job.results;
       renderResults($('out'), job.video, job.pose, job.results, job.ids ?? []);
@@ -790,7 +802,10 @@ function analyze(view: HTMLElement): void {
       chosen = { file, video, info: await probeVideo(file, video, fps), tilt };
       manual.v = null;
       cal.v = null;
+      reach.v = null;
+      reach.stand = reach.touch = -1;
       $('calib').hidden = true;
+      $('reach').hidden = true;
       job.results = null;
       job.pose = null;
       job.progress = 0;
@@ -879,6 +894,68 @@ function analyze(view: HTMLElement): void {
     } catch (e) {
       out.textContent = e instanceof Error ? e.message : String(e);
     }
+  };
+
+  // the reach method: touch height minus standing reach on the same wall
+  const reach = { v: null as HTMLVideoElement | null, head: 0.12, sole: 0.88, finger: 0.03, stand: -1, touch: -1 };
+  const heightNow = (): number => Number($<HTMLInputElement>('height').value);
+  const reachOf = (): number => (reach.stand < 0 || reach.touch < 0 ? NaN : ((reach.stand - reach.touch) / (reach.sole - reach.head)) * heightNow());
+  $('reachBtn').onclick = () => {
+    if (!chosen) return;
+    reach.v ??= Object.assign(document.createElement('video'), { src: chosen.video.src, muted: true, playsInline: true, controls: false });
+    const box = $('rbox');
+    if (!box.contains(reach.v)) box.prepend(reach.v);
+    $('reach').hidden = false;
+    $('reach').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  };
+  $<HTMLInputElement>('rscrub').oninput = (e) => {
+    if (reach.v && chosen) reach.v.currentTime = (Number((e.target as HTMLInputElement).value) / 1000) * chosen.info.duration;
+  };
+  $('rbox').querySelectorAll<HTMLElement>('.calline').forEach((line) => {
+    line.onpointerdown = (e) => {
+      line.setPointerCapture(e.pointerId);
+      const move = (ev: PointerEvent): void => {
+        const r = reach.v!.getBoundingClientRect();
+        const y = Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height));
+        reach[line.dataset.l as 'head' | 'sole' | 'finger'] = y;
+        line.style.top = `${y * 100}%`;
+      };
+      const up = (): void => {
+        line.removeEventListener('pointermove', move);
+        line.removeEventListener('pointerup', up);
+      };
+      line.addEventListener('pointermove', move);
+      line.addEventListener('pointerup', up);
+    };
+  });
+  const reachText = (): void => {
+    const height = heightNow();
+    const out = $('rOut');
+    if (!(height >= 120 && height <= 240)) return void (out.textContent = 'Enter your height above first, it sets the scale.');
+    const onScreen = (reach.sole - reach.head) * (reach.v?.getBoundingClientRect().height ?? 0);
+    const cmOff = onScreen > 0 ? (2 / onScreen) * height : 99; // two lines, each good to about a pixel on screen
+    const j = reachOf();
+    const ok = j > 5 && j < 150;
+    $<HTMLButtonElement>('rSave').disabled = !ok;
+    if (reach.stand < 0) out.textContent = 'Start with step 1.';
+    else if (reach.touch < 0) out.textContent = 'Now find the highest touch of the jump and tap step 2.';
+    else if (!ok) out.textContent = `That gives ${j.toFixed(0)} cm, which does not look like a jump. Check the fingertip lines.`;
+    else out.textContent = `Jump about ${j.toFixed(0)} cm, give or take ${cmOff.toFixed(1)} cm from placing the lines.${cmOff > 3 ? ' You are small on screen, so this is coarse.' : ''}`;
+  };
+  $('rStand').onclick = () => {
+    reach.stand = reach.finger;
+    reachText();
+  };
+  $('rTouch').onclick = () => {
+    reach.touch = reach.finger;
+    reachText();
+  };
+  $('rSave').onclick = () => {
+    const weight = Number($<HTMLInputElement>('weight').value);
+    const r = reachJump(heightNow(), reach.head, reach.sole, reach.stand, reach.touch, weight >= 30 && weight <= 200 ? weight : undefined);
+    data.sessions.push({ id: newId(), date: today(), kind: 'standing', headline: r.headline, metrics: r.metrics, tips: r.tips });
+    $('rOut').textContent = save(data) ? `Saved: ${r.headline.toFixed(0)} cm. It is on your dashboard.` : 'The browser could not store it (storage full or blocked). Export what you need.';
+    $<HTMLButtonElement>('rSave').disabled = true;
   };
 
   // measuring by hand: only the flight time counts, so any filming set-up works

@@ -268,6 +268,24 @@ export function levelPose(pose: Pose): { pose: Pose; rollDeg: number } {
   return { pose: { ...pose, frames: pose.frames.map((f) => (f ? f.map(turn) : null)), balls: (pose.balls ?? []).map((b) => (b ? turn(b) : null)) }, rollDeg: roll };
 }
 
+/**
+ * The reach method: the highest fingertip touch minus the standing reach, both read off the same wall. The three heights are
+ * pixel rows in the same picture; the person's height between head and soles gives the scale at the wall.
+ */
+export function reachJump(heightCm: number, headY: number, soleY: number, standFingerY: number, touchFingerY: number, weightKg?: number): Result {
+  const scale = heightCm / (soleY - headY);
+  const stand = (soleY - standFingerY) * scale;
+  const touch = (soleY - touchFingerY) * scale;
+  const jump = touch - stand;
+  const metrics: Metric[] = [
+    { label: 'Jump height (reach)', value: `${jump.toFixed(1)} cm`, status: 'info' },
+    { label: 'Standing reach', value: `${stand.toFixed(0)} cm`, status: 'info' },
+    { label: 'Touch height', value: `${touch.toFixed(0)} cm`, status: 'info' },
+  ];
+  if (weightKg) metrics.push({ label: 'Peak power (Sayers)', value: `${(60.7 * jump + 45.3 * weightKg - 2055).toFixed(0)} W`, status: 'info' });
+  return { kind: 'standing', headline: jump, metrics, tips: ['Measured by hand with the reach method (touch height minus standing reach). It is only as exact as the lines.'], marks: [], detectionRate: 1 };
+}
+
 /** Single jump: the highest one in the clip. */
 export function analyzeJump(pose: Pose, heightCm: number, kind: 'standing' | 'dunk', weightKg?: number): Result {
   const all = analyzeJumps(pose, heightCm, kind, weightKg);

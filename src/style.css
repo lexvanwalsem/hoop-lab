@@ -698,3 +698,17 @@ button, .tabs, .pick, .btn, summary, .chip { -webkit-user-select: none; user-sel
 .calline i { flex: 1; height: 2px; background: var(--jump); box-shadow: 0 0 0 1px rgb(0 0 0 / 0.5); }
 .calline::before { content: ''; position: absolute; left: 6px; width: 20px; height: 20px; border-radius: 50%; background: var(--jump); box-shadow: 0 0 0 2px #fff; }
 .calline span { position: absolute; right: 8px; top: 4px; padding: 2px 8px; border-radius: 6px; background: rgb(0 0 0 / 0.65); color: #fff; font: 500 12px/1.4 var(--body); }
+
+/* ---------- centred on every screen size: titles, section heads, the hero numbers ---------- */
+.band .wrap, .hero-row, .section-head, .stat, .welcome, .tile.busy { text-align: center; }
+.band .wrap, .hero-row .stack, .kicker { align-items: center; justify-content: center; }
+.hero-row { justify-content: center; }
+.section-head { flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+.section-head .pills { justify-content: center; }
+.stat .kicker, .stat .pb, .stat .week-dots, .welcome .row { justify-content: center; }
+.stat .meter, .stat .spark { margin-inline: auto; }
+.band .sub, .band p { margin-inline: auto; }
+@media (min-width: 701px) { .stats { gap: 24px; } }
+.stat .pb { margin-inline: auto; width: fit-content; }
+.legend, .chartkey { justify-content: center; }
+.trend > .row { justify-content: center; flex-wrap: wrap; gap: 8px 16px; }

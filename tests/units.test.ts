@@ -261,3 +261,14 @@ test('the scale ratio is nose-to-ankle over the drawn height', () => {
   // head line at 100 px, sole at 1100 px (1000 px tall), nose at 190 px, ankles at 1060 px: 870 / 1000
   assert.ok(Math.abs(scaleRatio(190, 1060, 100, 1100) - 0.87) < 1e-9);
 });
+
+// ---- the reach method ----
+
+import { reachJump } from '../src/analysis.ts';
+
+test('the reach method is touch height minus standing reach, scaled by the body', () => {
+  // body 1000 px tall = 190 cm; standing fingertip 300 px above the soles' row ... rows: head 100, soles 1100
+  const r = reachJump(190, 100, 1100, 160, 60); // stand: 940 px = 178.6 cm, touch: 1040 px = 197.6 cm
+  assert.ok(Math.abs(r.headline - 19) < 0.01);
+  assert.equal(r.metrics[1].value, '179 cm');
+});
