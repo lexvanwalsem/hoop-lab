@@ -22,7 +22,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/dashboard.png" alt="The Hoop Lab dashboard with jump trend, shot score and advice (demo data)" width="900">
+  <img src="docs/dashboard.png" alt="Home: your numbers per discipline and the jump trend (demo data)" width="900">
 </p>
 
 <p align="center"><sub>Screenshots show the built-in demo data (<code>?demo</code>), not real people.</sub></p>
@@ -35,16 +35,20 @@ fps. What is missing is the part that turns that video into numbers you can trus
 
 ## What Hoop Lab does
 
-Pick the type of test, drop in a video and fill in your real height and weight. Hoop Lab steps through the video,
-finds your joints in every frame, finds each jump or shot in the clip and measures it.
+Pick the test, film it or choose a video, check your height (and weight for a jump) and press Analyze. Hoop Lab steps
+through the video, finds your joints in every frame, finds each jump or shot in the clip and measures it.
 
 - **Standing jump and dunk approach jump:** jump height, flight time, countermovement depth, dip bottom to takeoff,
-  landing knee angle, an estimated relative power and, for the dunk, approach speed and reach above the rim.
+  landing knee angle, an estimated relative power and, for the dunk, approach speed and reach above the rim. When both
+  legs are clearly in view each is measured on its own and an uneven landing is flagged; a leg hidden behind the other is
+  left out instead of guessed.
 - **Jump shot:** a form score and the numbers behind it: knee bend, elbow at set point and at release, release height
   and angle, set point to release time, wrist flick, follow-through, how the release lines up with the top of your jump,
-  and forward drift. The ball is tracked, so the launch angle is measured and not guessed.
+  and forward drift. The ball is tracked, so the launch angle is measured and not guessed. With several balls in view it
+  follows the one in your hands, frame by frame.
 - **Where it went wrong:** the key moments of every jump or shot (dip, takeoff, landing; set point, release) are drawn as the
-  tracked body with the joint angles on it. A wedge shows each angle, flagged angles are coloured and show their target,
+  tracked body with the joint angles on it. A wedge between the two limbs shows each angle (the number is the joint angle
+  measured in 3D), flagged angles are coloured and show their target,
   and the card is outlined when it needs work. They are saved with the session as small drawings (about 2 KB), not as
   video, so they contain no faces and can be opened again later. Optionally (off by default) a photo of each moment can
   be kept too: it is cut around you, about 25 KB, stored on this device only and not part of backups, and the drawing is
@@ -52,22 +56,22 @@ finds your joints in every frame, finds each jump or shot in the clip and measur
 - **Replay:** the tracked skeleton of every jump or shot, with a timeline you can step through by phase.
 - **Advice:** every metric that is flagged comes with a plain explanation and concrete drills, with sets and reps. Each
   drill has a Watch link that opens a video search for how to do it, only when you click it.
-- **Progress:** a dashboard with your jump trend, shot score, personal bests, the habits that keep coming back, and an
-  exercise log.
+- **Progress:** Home shows your numbers, the trend chart per discipline, the habits that keep coming back and your recent
+  sessions. Every result ends with three exercises for the coming week that you can log with one tap.
 - **Framing check:** a live camera view that tracks your body and tells you what to fix before you film: whole body in
   frame, big enough with room to jump, turned about 45 degrees (required for a shot, only advised for a jump, whose height works from any
   angle; fully sideways hides your far arm and leg from the tracker), enough light. You can record right there with a 5 second countdown, and the clip goes straight into Analyze.
   The app asks the phone for 60 fps and counts the frames it really gets, so the analysis uses the true frame rate. Some phones only give 30 fps to a browser; then film with your camera app at 60 fps and choose the file.
-- **Built for the phone:** lists of cards become swipeable rows with dots, guide sections fold open one at a time, and long
-  tables show the latest rows first, so there is no endless scrolling.
+- **Built for the phone:** lists of cards become swipeable rows with dots, guide sections fold open one at a time, long
+  tables show the latest rows first, and during a test the buttons sit in the bottom bar, where the tabs normally are.
 - **Correct it by hand:** the takeoff and landing are found automatically; if they are off, adjust them frame by frame and the result and dashboard update. A clip the tracker cannot follow can be measured entirely by hand from the flight time.
 - **Reach test:** the classic Vertec-style measurement by hand: standing reach against a wall and the highest touch of the jump, read off the same picture with the scale from your own height.
 - **Your own scale:** drag two lines on a frame where you stand tall, from the top of your head to your soles. The app learns your nose-to-ankle proportion and uses it for every analysis, instead of the average.
 - **Phone tilt:** a phone that leans sideways is turned back automatically, and the framing check reads the phone's own tilt sensor and warns when it is tipped up or down.
-- **Three tabs:** Today (your charts, and once you have results quick Record and Upload buttons that land in Analyze with your last test filled in), Analyze (swipe to the test, read how to film it right under it, then record or choose a video) and Training (exercises you can log with one tap, your volume, plus how to jump higher).
+- **Three tabs and a test flow:** Home (your numbers and trend, a Test button per discipline, Settings behind the gear), Analyze (four steps: pick the test, film it, your details, the result, each discipline in its own colour) and Training (the same three disciplines with the exercises that fit them, your volume, and how to jump higher). Settings holds your height and weight, the jump goal, install, backup and the version number.
 
 <p align="center">
-  <img src="docs/result.png" alt="Result of one analyzed shot, with every metric on a range gauge and the advice that follows (demo data)" width="900">
+  <img src="docs/result.png" alt="A saved jump: what to work on, every metric on a range gauge, and the key moments (demo data)" width="900">
 </p>
 
 ## How it is different
@@ -112,23 +116,24 @@ npm run dev   # then open http://localhost:5173
 
 On Windows you can also double-click `start.cmd`. It installs on first run, opens the browser and starts the app.
 
-1. Open **Analyze** and enter your real height and weight. They set the scale and the power estimate, so wrong values
-   give wrong numbers. There are no default values on purpose.
-2. Choose the test, choose or drop a video, press **Analyze**. The frame rate is read from the file. Clips at 120 or 240
-   fps are analyzed at 60, or an exact divisor of it, to keep tracking fast.
-3. Keep the tab open until it finishes. The analysis keeps running if you switch tabs inside the app. Expect about 1.5
-   minutes for a 15 second jump clip and about 4 minutes for a 20 second shot clip (the shot also tracks the ball).
-4. The result is saved to the dashboard. Open any session later from the list.
+1. Open **Analyze** and swipe to the test: standing jump, dunk approach or jump shot.
+2. Record with the camera or choose a video. The frame rate is read from the file. Clips at 120 or 240 fps are analyzed at
+   60, or an exact divisor of it, to keep tracking fast.
+3. Enter your real height and, for a jump, your weight. They set the scale and the power estimate, so wrong values give
+   wrong numbers. There are no default values on purpose. A shot works without a height; distances are then estimates.
+4. Press **Analyze** and keep the app open until it finishes. Expect about 1.5 minutes for a 15 second jump clip and
+   about 4 minutes for a 20 second shot clip (the shot also tracks the ball).
+5. The result is saved. Open any session later from Home.
 
 To try the app before you have a video, open `http://localhost:5173/?demo`. It loads clearly labelled sample data that
 you can remove in one click.
 
 From a phone on the same wifi: `npm run dev` prints a Network URL. Open it on the phone and choose a video. Results live
-in the browser you used, so phone and PC keep separate dashboards. Use **Your data** on the dashboard to export a backup
+in the browser you used, so phone and PC keep separate results. Use **Your data** in Settings to export a backup
 and import it somewhere else.
 
 <p align="center">
-  <img src="docs/filming-guide.png" alt="The filming guide with camera diagrams (demo data)" width="900">
+  <img src="docs/filming-guide.png" alt="The Film step: how to film the test you picked (demo data)" width="900">
 </p>
 
 ## On your phone
@@ -147,8 +152,8 @@ address is `https://lexvanwalsem.github.io/hoop-lab/`. Any other static host wit
 2. After the first start the app and its models are cached, so it also works offline.
 
 HTTPS is required for installing and for the camera in the framing check. A plain `http://` address on your wifi still
-works for analyzing videos, just not for installing. Results live in the browser or app you used: use **Your data** on
-the dashboard to move a backup between devices: on a phone the export opens the share sheet, so you can save the file
+works for analyzing videos, just not for installing. Results live in the browser or app you used: use **Your data** in
+Settings to move a backup between devices: on a phone the export opens the share sheet, so you can save the file
 to Files, iCloud or Drive, or mail it to yourself. Import picks the file again from there. Speed depends on the phone, and tracking is slower on older ones.
 
 ## Filming in short
@@ -160,7 +165,7 @@ to Files, iCloud or Drive, or mail it to yourself. Import picks the file again f
 - Stay on one spot and stand still for 2 seconds at the start. Do not walk towards the camera: the tracker then mistakes the shifting floor for a jump. Good light, a plain background, fitted clothes, shoes visible.
 - Use the same camera spot every time so results are comparable.
 
-The **Record** tab shows how to film right under the test you pick, with diagrams.
+The **Film** step in Analyze shows how to film the test you picked, with diagrams.
 
 ## How it works
 
@@ -169,7 +174,8 @@ The **Record** tab shows how to film right under the test you pick, with diagram
 2. **Calibration.** The scale in centimetres per pixel comes from your height: the nose-to-ankle span is about 89 % of
    your height, measured while you stand upright in the 4 seconds before takeoff. Wrong height means wrong scale.
 3. **Jump height.** The standing jump height comes from flight time, `h = g * T^2 / 8`, where `T` is the time between
-   takeoff and landing. It needs no scale at all, which makes it the most reliable number. The rise of the hips is shown
+   takeoff and landing. It needs no scale at all, which makes it the most reliable number. The moments the feet leave and
+   touch the floor are pinned between two frames, so the timing is finer than one frame. The rise of the hips is shown
    next to it. Relative power uses the Sayers formula, `60.7 * jump height + 45.3 * body mass - 2055`, and is an
    estimate for comparing yourself over time, not an exact measure.
 4. **Shots.** A shot is the shooting wrist above the nose with the elbow extending, and shots less than 2 seconds apart
@@ -187,28 +193,29 @@ The **Record** tab shows how to film right under the test you pick, with diagram
 - **Honest numbers.** Targets in the app are starting points, the accuracy is stated below, and demo data is always
   labelled.
 - **Tests.** `npm test` checks the calibration, jump and shot detection on synthetic stick-figure clips with known
-  answers, and the storage, backup, advice and video header logic.
+  answers (including jump height at 30 and 60 fps wherever the jump falls between frames), picking the right ball among
+  several, measuring both legs, and the storage, backup, advice and video header logic.
 
 ## Limits
 
-- Accuracy is roughly 3 to 5 cm for the jump. The same video can differ a few centimetres between runs, because stepping
-  through a video does not land on exactly the same frames every time.
-- At 30 fps the jump height is fine, but takeoff and landing timing and shot timing are coarse (33 ms per frame).
+- On synthetic clips with a known answer the flight-time height is off by about 2 cm on average at 30 fps and well under
+  1 cm at 60 fps. Real clips add tracker noise, so expect roughly 3 to 5 cm. The same video can differ a little between
+  runs, because stepping through a video does not land on exactly the same frames every time.
+- At 30 fps shot timing is coarse (33 ms per frame). Film at 60 fps or more for shots.
 - A figure that is small in the frame makes joint angles noisy. A front view is less accurate than a side view for joint
   angles.
 - Ball detection uses a generic "sports ball" model. A ball hidden in the hand or blurred is often missed. When it is
-  not found, the release is estimated from the elbow.
+  not found, the release is estimated from the elbow. With several balls in view the one nearest your hands is followed.
 - Make or miss is out of scope. Hoop Lab is about form, not outcome.
 - Some iPhone videos are HEVC (H.265) and not every browser can decode them. Use Safari or Edge, or convert the video to
   H.264.
-- Tracking takes minutes, and a browser can slow down background tabs. Keep the analysis tab visible.
+- Tracking takes minutes, and a browser can slow down background tabs. Keep the app open and in front.
 - Metric thresholds in `src/analysis.ts` are starting points. Tune them to your own good reps.
 - This is general training information, not medical advice. Stop if you feel pain.
 
 ## What is next
 
 - Compare two sessions side by side
-- Draw the tracked skeleton on top of your original video
 - A free-throw and layup mode
 - A lighter tracking model as an option for older phones
 - Animated demos of the drills, drawn with the same skeleton as the jump guide, instead of a video search

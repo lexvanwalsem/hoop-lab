@@ -1,4 +1,4 @@
-import type { Pose } from './pose';
+import type { Pose, Pt } from './pose';
 
 export type Kind = 'standing' | 'dunk' | 'shot';
 export type Status = 'good' | 'warn' | 'bad' | 'info';
@@ -161,14 +161,32 @@ function calibrate(pose: Pose, heightCm: number, from = 0, to = pose.frames.leng
   return (heightCm * ratio) / percentile(spans, 0.9); // nose-to-ankle is about 89% of body height, unless it was measured on this person
 }
 
-function lowestFoot(pose: Pose): { low: number[]; ground: number } {
-  const low = series(pose, (p) => Math.max(p(29)[1], p(30)[1], p(31)[1], p(32)[1]));
-  return { low, ground: percentile(low, 0.9) };
+function lowestFoot(pose: Pose): { low: number[]; raw: number[]; ground: number } {
+  const foot = (lm: Pt[] | null): number => (lm ? Math.max(lm[29].y, lm[30].y, lm[31].y, lm[32].y) * pose.height : NaN);
+  const raw = fillGaps(pose.frames.map(foot)); // not smoothed: smoothing smears the moment the foot leaves the floor
+  const low = smooth(raw);
+  return { low, raw, ground: percentile(low, 0.9) };
+}
+
+/** Height (cm) at which the foot is taken to leave or touch the floor between two frames: above tracker noise, low enough to be near contact. */
+const CONTACT_CM = 2;
+
+/**
+ * The moment, in frames with a fraction, that the foot passes CONTACT_CM on the way up (dir 1) or down (dir -1), searched
+ * around frame `near`. Between two frames the foot moves almost in a straight line, so the crossing is interpolated.
+ */
+function crossing(lift: number[], near: number, dir: 1 | -1): number | null {
+  for (let k = Math.max(0, near - 2); k <= Math.min(lift.length - 2, near + 2); k++) {
+    const [a, b] = [lift[k], lift[k + 1]];
+    if (dir > 0 ? a <= CONTACT_CM && b > CONTACT_CM : a > CONTACT_CM && b <= CONTACT_CM) return k + (CONTACT_CM - a) / (b - a);
+  }
+  return null;
 }
 
 interface Flight {
   takeoff: number; // last frame on the ground
   landing: number; // first frame back on the ground
+  air?: number; // time in the air in frames, with a fraction, when the moments of leaving and touching the floor could be pinned between frames
   ground: number; // floor level (pixel y) at the place of takeoff
   peak: number; // highest foot clearance in cm
 }
@@ -179,7 +197,7 @@ interface Flight {
  * shifts when the person moves towards or away from the camera.
  */
 function findFlights(pose: Pose, cm: number, near?: [number, number]): Flight[] {
-  const { low } = lowestFoot(pose);
+  const { low, raw } = lowestFoot(pose);
   // floor level per frame: the lowest foot position within 1 s around it, so a floor that
   // shifts in the image (person moves closer or further away) does not look like flight
   const reach = pose.fps;
@@ -204,7 +222,11 @@ function findFlights(pose: Pose, cm: number, near?: [number, number]): Flight[] 
         for (let w = 0; w < maxWalk && landing < lift.length - 1 && lift[landing + 1] <= lift[landing] && lift[landing] > 1.5; w++) landing++;
         const ground = percentile(low.slice(Math.max(0, takeoff - pose.fps), takeoff + 1), 0.9);
         const peak = (ground - Math.min(...low.slice(start, end + 1))) * cm;
-        flights.push({ takeoff, landing, ground, peak });
+        // between frames: when did the foot really pass just above the floor, on the way up and on the way down
+        const liftRaw = raw.map((y, i) => (floor[i] - y) * cm);
+        const up = crossing(liftRaw, takeoff, 1);
+        const down = crossing(liftRaw, landing - 1, -1);
+        flights.push({ takeoff, landing, ground, peak, ...(up !== null && down !== null && down > up ? { air: down - up } : {}) });
       }
       start = -1;
     }
@@ -331,8 +353,14 @@ function jumpResult(pose: Pose, fl: Flight, cm: number, kind: 'standing' | 'dunk
 
   const apex = argmin(hipY, fl.takeoff, fl.landing);
   const rise = (hipY[fl.takeoff] - hipY[apex]) * cm;
-  // takeoff and landing are both frames with a foot still on the floor, so the real flight is about a frame shorter
-  const flightTime = (fl.landing - fl.takeoff - 1) / fps;
+  // takeoff and landing are both frames with a foot still on the floor, so the real flight is about a frame shorter;
+  // better: the moments the foot passed just above the floor, pinned between frames. Those miss the first and last
+  // CONTACT_CM of the flight, which at takeoff speed (g * T / 2) takes 2 * CONTACT_CM / (g * T / 2) seconds, added back.
+  let flightTime = (fl.landing - fl.takeoff - 1) / fps;
+  if (fl.air !== undefined) {
+    const t = fl.air / fps;
+    flightTime = t + (4 * (CONTACT_CM / 100)) / (G * t);
+  }
   const hangHeight = (100 * G * flightTime * flightTime) / 8;
 
   // countermovement: how far the hips lower in the last 0.8 s before takeoff
