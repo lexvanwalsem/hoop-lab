@@ -5,6 +5,7 @@ import { armFrame, VIDEO_ERROR } from './video';
 export interface Pt {
   x: number; // normalized 0..1
   y: number; // normalized 0..1, down is positive
+  v?: number; // how sure the tracker is that the point is visible, 0..1 (a leg hidden behind the other scores low)
 }
 
 export interface Pose {
@@ -126,7 +127,7 @@ export async function extractPose(
       const ts = Math.round((i * 1000) / fps);
       const result = landmarker.detectForVideo(video, ts);
       const lm = result.landmarks[0];
-      frames.push(lm ? lm.map((p) => ({ x: p.x, y: p.y })) : null);
+      frames.push(lm ? lm.map((p) => ({ x: p.x, y: p.y, v: p.visibility ?? 1 })) : null);
       const w = result.worldLandmarks[0];
       world.push(w ? w.map((p) => ({ x: p.x, y: p.y, z: p.z })) : null);
 

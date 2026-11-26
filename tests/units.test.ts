@@ -321,3 +321,18 @@ test('a ball that is not near the player is never picked to start with', () => {
   const picked = pickBalls([lm, lm], [[{ x: 0.95, y: 0.05 }], [{ x: 0.95, y: 0.05 }]], 1080, 1920, 60);
   assert.deepEqual(picked, [null, null]);
 });
+
+// ---- both legs, or the one that was seen ----
+
+import { legsToUse } from '../src/analysis.ts';
+
+test('both legs are measured when both are seen, only the visible one when the other is hidden', () => {
+  const frame = (vl: number, vr: number) => Array.from({ length: 33 }, (_, k) => ({ x: 0.5, y: 0.5, v: [23, 25, 27].includes(k) ? vl : [24, 26, 28].includes(k) ? vr : 1 }));
+  const pose = (vl: number, vr: number) => ({ fps: 60, width: 1080, height: 1920, frames: [frame(vl, vr), frame(vl, vr)], balls: [], world: [] });
+  assert.deepEqual(legsToUse(pose(0.95, 0.9)), { left: true, right: true });
+  assert.deepEqual(legsToUse(pose(0.95, 0.3)), { left: true, right: false }, 'filmed from the left: the right leg is behind');
+  assert.deepEqual(legsToUse(pose(0.2, 0.9)), { left: false, right: true });
+  // clips stored before visibility was kept still measure both legs
+  const old = { fps: 60, width: 1080, height: 1920, frames: [Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5 }))], balls: [], world: [] };
+  assert.deepEqual(legsToUse(old), { left: true, right: true });
+});

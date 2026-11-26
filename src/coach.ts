@@ -30,6 +30,8 @@ function rule(m: Metric): Rec | null {
       return { title: 'Be more reactive out of the dip', why: 'You wait too long between the bottom of the dip and takeoff, which wastes the stretch-reflex. Do not pause at the bottom, reverse immediately.', drills: ['Depth jump from 20-30 cm: 3 x 4, minimal ground contact, jump as high as possible', 'Pogo hops: 3 x 15', 'Skater or lateral bounds: 3 x 6 per side'] };
     case 'Landing knee angle':
       return { title: 'Land softer', why: 'You land stiff, which loads knees and back and costs you in repeated jumps. Land on both feet, bend ankles, knees and hips together and keep the knees over the toes.', drills: ['Drop landing from a low box (20-30 cm): 3 x 5, stick it for 2 s', 'Single-leg landing hold: 3 x 5 per leg', 'Tempo squat, 3 s down: 3 x 6'] };
+    case 'Landing difference':
+      return { title: 'Land evenly on both legs', why: 'One knee bends clearly less than the other when you land, so one leg takes more of the load. Over many jumps that side gets sore first. Land on both feet and let both knees bend the same.', drills: ['Single-leg landing hold: 3 x 5 per leg, start with the weaker side', 'Split squat: 3 x 8 per leg', 'Drop landing from a low box (20-30 cm): 3 x 5, stick it for 2 s'] };
     case 'Relative power':
       return { title: 'Build force, then convert it to speed', why: 'Your power for your body weight is on the low side. Force comes first: get stronger in the legs, then train speed with light jumps.', drills: ['Back squat or trap-bar deadlift: 4 x 4 heavy, 2-3 min rest', 'Romanian deadlift: 3 x 6', 'Jump squat with a light load: 4 x 4, as fast as possible', 'Bulgarian split squat: 3 x 6 per leg'] };
     case 'Approach speed':

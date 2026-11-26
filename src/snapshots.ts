@@ -1,4 +1,4 @@
-import { angle } from './analysis.ts';
+import { angle, legsToUse } from './analysis.ts';
 import type { Metric, Result, Status } from './analysis';
 import type { Pose } from './pose';
 
@@ -68,6 +68,10 @@ function shootingSide(pose: Pose): Side {
 }
 
 function bendingSide(pose: Pose, frame: number): Side {
+  // a leg the tracker could not see is never the one measured
+  const legs = legsToUse(pose);
+  if (!legs.left) return RIGHT;
+  if (!legs.right) return LEFT;
   return angleAt(pose, frame, LEFT.hip, LEFT.kn, LEFT.an) <= angleAt(pose, frame, RIGHT.hip, RIGHT.kn, RIGHT.an) ? LEFT : RIGHT;
 }
 
@@ -118,8 +122,14 @@ export function buildSnapshots(pose: Pose, result: Result): Snap[] {
     } else if (m.name === 'Landing') {
       frame = deepestLanding(pose, frame);
       if (pose.frames[frame]) {
-        const s = bendingSide(pose, frame);
-        angles.push(mark(pose, frame, [s.hip, s.kn, s.an], 'Knee', metricOf(result, 'Landing knee angle')));
+        const legs = legsToUse(pose);
+        if (legs.left && legs.right) {
+          angles.push(mark(pose, frame, [LEFT.hip, LEFT.kn, LEFT.an], 'Left knee', metricOf(result, 'Landing knee left')));
+          angles.push(mark(pose, frame, [RIGHT.hip, RIGHT.kn, RIGHT.an], 'Right knee', metricOf(result, 'Landing knee right')));
+        } else {
+          const s = legs.left ? LEFT : RIGHT;
+          angles.push(mark(pose, frame, [s.hip, s.kn, s.an], 'Knee', metricOf(result, 'Landing knee angle')));
+        }
       }
     }
     const lm = pose.frames[frame];

@@ -82,6 +82,33 @@ function angleSeries(pose: Pose, a: number, b: number, c: number): number[] {
   return smooth(fillGaps(raw));
 }
 
+/** How well the tracker saw a set of points over the clip, 0..1. Clips from before visibility was kept count as seen. */
+export function seen(pose: Pose, points: number[]): number {
+  let sum = 0;
+  let n = 0;
+  for (const lm of pose.frames) {
+    if (!lm) continue;
+    for (const k of points) {
+      sum += lm[k].v ?? 1;
+      n++;
+    }
+  }
+  return n ? sum / n : 0;
+}
+
+export const LEG_L = [23, 25, 27];
+export const LEG_R = [24, 26, 28];
+/** A leg counts when the tracker saw it at least this well. Filmed from the side, the far leg usually scores lower. */
+const SEEN = 0.6;
+
+/** Which legs to measure: both when both were seen, otherwise the one that was seen best. */
+export function legsToUse(pose: Pose): { left: boolean; right: boolean } {
+  const l = seen(pose, LEG_L);
+  const r = seen(pose, LEG_R);
+  if (l >= SEEN && r >= SEEN) return { left: true, right: true };
+  return l >= r ? { left: true, right: false } : { left: false, right: true };
+}
+
 function percentile(a: number[], q: number): number {
   const s = a.slice().sort((x, y) => x - y);
   return s[Math.min(s.length - 1, Math.floor(q * s.length))];
@@ -299,7 +326,8 @@ function jumpResult(pose: Pose, fl: Flight, cm: number, kind: 'standing' | 'dunk
   const handTop = series(pose, (p) => Math.min(p(15)[1], p(16)[1], p(19)[1], p(20)[1]));
   const kneeL = angleSeries(pose, 23, 25, 27);
   const kneeR = angleSeries(pose, 24, 26, 28);
-  const kneeAngle = kneeL.map((v, i) => (v + kneeR[i]) / 2);
+  const legs = legsToUse(pose);
+  const kneeAngle = legs.left && legs.right ? kneeL.map((v, i) => (v + kneeR[i]) / 2) : legs.left ? kneeL : kneeR;
 
   const apex = argmin(hipY, fl.takeoff, fl.landing);
   const rise = (hipY[fl.takeoff] - hipY[apex]) * cm;
@@ -333,6 +361,17 @@ function jumpResult(pose: Pose, fl: Flight, cm: number, kind: 'standing' | 'dunk
   metrics.push({ label: 'Dip bottom to takeoff', value: `${dipMs.toFixed(0)} ms`, status: status(band(dipMs, 150, 350, 150)), target: '150-350 ms' });
   const landScore = band(landKnee, 0, 140, 30);
   metrics.push({ label: 'Landing knee angle', value: `${landKnee.toFixed(0)} deg`, status: status(landScore), target: 'under 140 deg' });
+  if (legs.left && legs.right) {
+    // both legs seen: each one on its own, and how far apart they land
+    const landL = Math.min(...kneeL.slice(fl.landing, landEnd + 1));
+    const landR = Math.min(...kneeR.slice(fl.landing, landEnd + 1));
+    const diff = Math.abs(landL - landR);
+    metrics.push({ label: 'Landing knee left', value: `${landL.toFixed(0)} deg`, status: 'info' });
+    metrics.push({ label: 'Landing knee right', value: `${landR.toFixed(0)} deg`, status: 'info' });
+    metrics.push({ label: 'Landing difference', value: `${diff.toFixed(0)} deg`, status: status(band(diff, 0, 12, 20)), target: 'under 12 deg' });
+  } else {
+    tips.push(`Only your ${legs.left ? 'left' : 'right'} leg was seen clearly, so the knee angles come from that leg. Turn a little towards the camera to measure both.`);
+  }
 
   if (dipScore < 1) tips.push(dip < 25 ? 'Dip deeper before takeoff to load more.' : 'Dip is very deep. A shorter, faster dip often gives more spring.');
   if (landScore < 1) tips.push('Land with more knee bend to absorb the impact.');
@@ -443,7 +482,10 @@ export function analyzeShot(pose: Pose, heightCm: number, cmOverride?: number): 
   const wristY = right ? wr : wl;
   const elbow = angleSeries(pose, k.sh, k.el, k.wr);
   const wristAngle = angleSeries(pose, k.el, k.wr, k.ix);
-  const knee = angleSeries(pose, k.hip, k.kn, k.an);
+  // the knee of the shooting side, unless that leg was hidden: then the other one
+  const legs = legsToUse(pose);
+  const kneeLeft = right ? !legs.right : legs.left;
+  const knee = kneeLeft ? angleSeries(pose, 23, 25, 27) : angleSeries(pose, 24, 26, 28);
   const noseY = series(pose, (p) => p(0)[1]);
   const shoulderY = series(pose, (p) => p(k.sh)[1]);
   const hipY = series(pose, (p) => p(k.hip)[1]);
