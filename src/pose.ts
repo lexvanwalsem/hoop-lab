@@ -1,4 +1,5 @@
 import { FilesetResolver, ObjectDetector, PoseLandmarker } from '@mediapipe/tasks-vision';
+import { pickBalls } from './ball';
 import { armFrame, VIDEO_ERROR } from './video';
 
 export interface Pt {
@@ -116,7 +117,7 @@ export async function extractPose(
   const detector = trackBall ? await createBallDetector(files) : null;
   const count = Math.floor(video.duration * fps);
   const frames: (Pt[] | null)[] = [];
-  const balls: (Pt | null)[] = [];
+  const cands: Pt[][] = []; // every ball the detector sees per frame; the one in play is picked afterwards
   const world: (Pt3[] | null)[] = [];
   try {
     for (let i = 0; i < count; i++) {
@@ -129,9 +130,9 @@ export async function extractPose(
       const w = result.worldLandmarks[0];
       world.push(w ? w.map((p) => ({ x: p.x, y: p.y, z: p.z })) : null);
 
-      // detections come back in pixels, best score first
-      const box = detector?.detectForVideo(video, ts).detections[0]?.boundingBox;
-      balls.push(box ? { x: (box.originX + box.width / 2) / video.videoWidth, y: (box.originY + box.height / 2) / video.videoHeight } : null);
+      // detections come back in pixels; all of them are kept, because there can be more than one ball in the picture
+      const dets = detector ? detector.detectForVideo(video, ts).detections : [];
+      cands.push(dets.flatMap((d) => (d.boundingBox ? [{ x: (d.boundingBox.originX + d.boundingBox.width / 2) / video.videoWidth, y: (d.boundingBox.originY + d.boundingBox.height / 2) / video.videoHeight }] : [])));
       if (i % 5 === 0) onProgress(i / count);
     }
   } finally {
@@ -139,6 +140,7 @@ export async function extractPose(
     detector?.close();
   }
   onProgress(1);
+  const balls = pickBalls(frames, cands, video.videoWidth, video.videoHeight, fps);
   return { fps, width: video.videoWidth, height: video.videoHeight, frames, balls, world };
 }
 

@@ -9,20 +9,23 @@ const BONES: [number, number][] = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 
 const f = (n: number): string => n.toFixed(1);
 
 /**
- * The wedge for one angle. Its opening is the measured angle itself (taken in 3D), laid along the first limb, so the
- * picture always agrees with the number, even when the camera sees the body from the front.
+ * The wedge for one angle runs between the two limbs as they are drawn, so it always lines up with the skeleton.
+ * The number is the joint angle measured in 3D: when the camera does not see the joint from the side, the wedge on screen
+ * looks wider or narrower than that number, because the picture is flat and the joint is not.
  */
 function wedge(p: (i: number) => [number, number], m: AngleMark, u: number): string {
   const b = p(m.b);
   const ua = [p(m.a)[0] - b[0], p(m.a)[1] - b[1]];
   const uc = [p(m.c)[0] - b[0], p(m.c)[1] - b[1]];
   const t1 = Math.atan2(ua[1], ua[0]);
-  const side = ua[0] * uc[1] - ua[1] * uc[0] >= 0 ? 1 : -1; // which way the second limb lies in the picture
-  const d = (side * m.deg * Math.PI) / 180;
+  // the turn from the first limb to the second, the short way round, exactly as the two lines lie in the picture
+  let d = Math.atan2(uc[1], uc[0]) - t1;
+  if (d > Math.PI) d -= 2 * Math.PI;
+  if (d <= -Math.PI) d += 2 * Math.PI;
   const r = 11 * u;
   const at = (t: number, rad: number): string => `${f(b[0] + rad * Math.cos(t))} ${f(b[1] + rad * Math.sin(t))}`;
   const mid = t1 + d / 2;
-  const path = `M${f(b[0])} ${f(b[1])}L${at(t1, r)}A${f(r)} ${f(r)} 0 ${m.deg > 180 ? 1 : 0} ${side > 0 ? 1 : 0} ${at(t1 + d, r)}Z`;
+  const path = `M${f(b[0])} ${f(b[1])}L${at(t1, r)}A${f(r)} ${f(r)} 0 0 ${d > 0 ? 1 : 0} ${at(t1 + d, r)}Z`;
   const [lx, ly] = [b[0] + (r + 7 * u) * Math.cos(mid), b[1] + (r + 7 * u) * Math.sin(mid) + 2.5 * u];
   const flagged = m.status === 'bad' || m.status === 'warn';
   return `<g class="ang ${m.status}">

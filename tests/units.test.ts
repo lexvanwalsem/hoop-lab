@@ -283,3 +283,41 @@ test('a measured frame rate snaps to the usual one', () => {
   assert.equal(snapFps(118), 120);
   assert.equal(snapFps(41.2), 41); // not a usual rate: kept
 });
+
+// ---- the ball in play when there are several ----
+
+import { pickBalls } from '../src/ball.ts';
+
+test('with several balls in the picture, the one in the hands is followed and the others are ignored', () => {
+  const fps = 60;
+  const n = 40;
+  const body = (i: number) => {
+    const lm = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5 }));
+    lm[0] = { x: 0.5, y: 0.2 }; // nose
+    lm[27] = { x: 0.48, y: 0.9 };
+    lm[28] = { x: 0.52, y: 0.9 };
+    lm[15] = { x: 0.55, y: 0.35 - i * 0.004 }; // hands rising
+    lm[16] = { x: 0.56, y: 0.35 - i * 0.004 };
+    return lm;
+  };
+  const frames = Array.from({ length: n }, (_, i) => body(i));
+  // the shot rises from the hands; a second ball lies still on the floor; a third rolls far away
+  const shot = (i: number) => ({ x: 0.56, y: 0.33 - i * 0.012 });
+  const cands = Array.from({ length: n }, (_, i) => [{ x: 0.2, y: 0.92 }, { x: 0.9 - i * 0.002, y: 0.8 }, ...(i === 20 ? [] : [shot(i)])]);
+  const picked = pickBalls(frames, cands, 1080, 1920, fps);
+  for (let i = 0; i < n; i++) {
+    if (i === 20) assert.equal(picked[i], null, 'a frame without the shot stays empty, the floor ball is not taken');
+    else assert.deepEqual(picked[i], shot(i), `frame ${i}`);
+  }
+});
+
+test('a ball that is not near the player is never picked to start with', () => {
+  const lm = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5 }));
+  lm[0] = { x: 0.5, y: 0.2 };
+  lm[27] = { x: 0.5, y: 0.9 };
+  lm[28] = { x: 0.5, y: 0.9 };
+  lm[15] = { x: 0.5, y: 0.5 };
+  lm[16] = { x: 0.5, y: 0.5 };
+  const picked = pickBalls([lm, lm], [[{ x: 0.95, y: 0.05 }], [{ x: 0.95, y: 0.05 }]], 1080, 1920, 60);
+  assert.deepEqual(picked, [null, null]);
+});
