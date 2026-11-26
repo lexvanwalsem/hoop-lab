@@ -19,7 +19,7 @@ import { EXERCISES, exercisesFor, GROUP_LABEL, GROUP_NOTE, type Exercise, type G
 import { clearPhotos, deletePhotos, getPhotoUrl, keepPhotos, savePhotos, setKeepPhotos } from './photos';
 import { snapSvg } from './snapview';
 import { buildSnapshots, type Snap } from './snapshots';
-import { framingPanel, icon, runFigures, sparkline } from './art';
+import { framingPanel, icon, sparkline } from './art';
 import { gauge } from './gauge';
 
 const data: Data = load();
@@ -194,7 +194,6 @@ function moveInk(instant: boolean): void {
 window.addEventListener('resize', () => moveInk(true));
 
 let showToken = 0;
-let stopFigures: () => void = () => {};
 const observers: IntersectionObserver[] = [];
 
 /** Runs `fn` once, when the element first scrolls into view (so a chart does not animate off screen). */
@@ -235,7 +234,6 @@ async function show(next: Tab, soft = false): Promise<void> {
   document.querySelector('.wizbtns')?.remove();
   charts.forEach((c) => c.destroy());
   charts = [];
-  stopFigures();
   observers.forEach((o) => o.disconnect());
   observers.length = 0;
   view.classList.remove('leaving');
@@ -249,7 +247,6 @@ async function show(next: Tab, soft = false): Promise<void> {
   })[tab](view);
   phoneLayout(view);
   animateIn(view, soft);
-  stopFigures = runFigures(view, reduceMotion);
 }
 
 /**
