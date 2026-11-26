@@ -776,3 +776,200 @@ details.guide > summary h2 { flex: 0 1 auto; }
 .nudge { animation: nudge 1.4s var(--ease) 1; }
 @keyframes nudge { 0%, 100% { transform: none; } 20%, 60% { transform: scale(1.05); } 40%, 80% { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .nudge { animation: none; } }
+
+/* ---------- one colour per discipline ---------- */
+#view { --dk-standing: #ff5000; --dk-dunk: #6e0ff6; --dk-shot: #1151ff; }
+#view[data-kind='standing'] { --disc: var(--dk-standing); }
+#view[data-kind='dunk'] { --disc: var(--dk-dunk); }
+#view[data-kind='shot'] { --disc: var(--dk-shot); }
+#view.themed { --jump: var(--disc); --c: var(--disc); }
+#view.themed > .band { background: var(--disc); color: #fff; transition: background 300ms var(--ease); }
+#view.themed > .band .sub, #view.themed > .band .muted, #view.themed > .band .kicker { color: rgb(255 255 255 / 0.85); }
+#view.themed .btn.primary { border-color: var(--disc); background: var(--disc); color: #fff; }
+#view.themed .btn.primary:hover { filter: brightness(1.1); }
+#view.themed .pill.on { border-color: var(--disc); background: var(--disc); color: #fff; }
+#view.themed .pick.on { background: var(--disc); color: #fff; }
+#view.themed .pick.on p { color: rgb(255 255 255 / 0.85); }
+#view.themed .pick.on .ico { color: #fff; }
+#view.themed .dots i.on { background: var(--disc); }
+#view.themed .meter > div { background: var(--disc); }
+.pick.standing, .pick.dunk, .pick.shot { position: relative; }
+.tabsbar { justify-content: center; margin-top: 32px; }
+.exhead { margin: 24px 0 4px; text-align: center; }
+.exgroup .note { text-align: center; margin: 0 auto 16px; max-width: 560px; }
+.fold.plan { margin-top: 24px; }
+@media (max-width: 700px) {
+  .picker.kinds { padding-inline: 32px; margin-bottom: 0; }
+  .picker.kinds > * { flex: 0 0 100%; scroll-snap-align: center; scroll-snap-stop: always; }
+  .picker.kinds + .dots { margin: 16px 0 28px; }
+}
+
+/* ---------- the four steps ---------- */
+.offstep { display: none !important; }
+.wsteps { display: flex; justify-content: center; gap: 8px; margin: 28px auto 0; max-width: 360px; }
+.wstep { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 6px 0; border: 0; background: transparent; color: rgb(255 255 255 / 0.65); font: 600 12px/1.2 var(--body); cursor: default; }
+.wstep:not(:disabled) { cursor: pointer; }
+.wstep b { display: block; width: 100%; height: 4px; border-radius: 4px; background: rgb(255 255 255 / 0.3); transition: background 300ms var(--ease); }
+.wstep.on b, .wstep.done b { background: #fff; }
+.wstep.on, .wstep.done { color: #fff; }
+.section[data-step]:not(#calib):not(#reach):not(#manual) > .section-head { display: none; }
+
+/* ---------- icons are background decoration, never part of the layout ---------- */
+.pick { position: relative; overflow: hidden; }
+.pick > span { position: relative; }
+.cardi { position: relative; overflow: hidden; }
+.cardi > h3, .cardi > p { position: relative; }
+.cardi { padding-top: 24px; }
+/* room between the buttons and the guide */
+#kindguide { margin-top: 44px; }
+.pick { justify-content: flex-end; }
+
+/* scattered background icons */
+.scatter { position: absolute; inset: 0; overflow: hidden; pointer-events: none; color: var(--fg); }
+.sc { position: absolute; left: calc(var(--x) - var(--s) / 2); top: calc(var(--y) - var(--s) / 2); width: var(--s); height: var(--s); opacity: var(--o); transform: rotate(var(--r)); animation: drift var(--t) ease-in-out var(--w) infinite alternate; }
+.sc svg.ico { width: 100%; height: 100%; color: inherit; }
+.pick.on .scatter, .pick.on .sc { color: #fff; }
+.pick.on .sc { opacity: calc(var(--o) * 1.8); }
+@keyframes drift { from { transform: translate(0, 0) rotate(var(--r)); } to { transform: translate(6px, -8px) rotate(calc(var(--r) + 14deg)); } }
+@media (prefers-reduced-motion: reduce) { .sc { animation: none; } }
+.pick > .scatter, .cardi > .scatter { position: absolute; inset: 0; }
+
+/* ---------- the test is a flow of its own: no tab bar, a back button on top, two floating buttons ---------- */
+.band { position: relative; }
+.wtop { position: absolute; z-index: 2; left: 16px; top: calc(14px + env(safe-area-inset-top, 0px)); display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: rgb(255 255 255 / 0.18); color: #fff; cursor: pointer; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.wtop.pill { left: auto; right: 16px; width: auto; height: 36px; padding: 0 16px; border-radius: 999px; font: 600 14px/1 var(--body); }
+.wtop:active { transform: scale(0.94); }
+.testrow { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+.testrow .btn { border-color: rgb(255 255 255 / 0.4); background: transparent; color: #fff; }
+.testrow .btn:hover { border-color: #fff; }
+#run { display: none; }
+[data-step="2"] .col > .btn, [data-step="2"] .col > p.muted.small { display: none; }
+.band:has(.wtop) .wrap { padding-top: calc(76px + env(safe-area-inset-top, 0px)); }
+#kindguide { margin-top: 28px; }
+
+/* ---------- Home: a light page, the numbers in one strip, the chart as the main thing ---------- */
+:root { --train: #12a37f; }
+.band.home { background: var(--bg); color: var(--fg); }
+.band.home .wrap { padding-bottom: 8px; }
+.band.home .wtop.pill { background: var(--surface); color: var(--fg); }
+.band.home .testrow .btn { border-color: var(--border); color: var(--fg); }
+.band.home .testrow .btn:hover { border-color: var(--fg); }
+.kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 32px; }
+.kpis .stat { --c: var(--jump); gap: 6px; align-items: center; text-align: center; }
+.kpis .stat.shot { --c: var(--shot); }
+.kpis .stat.train { --c: var(--train); }
+.kpis .stat .kicker { justify-content: center; color: var(--muted); }
+.kpis .stat .numeral { font-size: clamp(40px, 11vw, 64px); }
+.kpis .stat .numeral small { display: block; margin: 2px 0 0; font-size: 13px; line-height: 1.2; color: var(--muted); }
+.kpis .stat .meter, .kpis .stat .spark, .kpis .stat .pb, .kpis .stat .week-dots, .kpis .stat .sub { display: none; }
+@media (min-width: 701px) { .kpis .stat .sub { display: block; } }
+.trend .chartbox { height: 300px; }
+
+/* ---------- Training: the tabs and the numbers live in the coloured band, the cards carry the colour too ---------- */
+.band .tabsbar { margin-top: 24px; }
+#view.themed .band .pill.on { border-color: #fff; background: #fff; color: #111; }
+.band:not(.home) .kpis .stat, .band:not(.home) .kpis .stat .numeral { color: #fff; }
+.band:not(.home) .kpis .stat .kicker, .band:not(.home) .kpis .stat .numeral small, .band:not(.home) .kpis .stat .sub { color: rgb(255 255 255 / 0.85); }
+.band:not(.home) .kpis .stat .kicker i { background: #fff; }
+.band:not(.home) .kpis { margin-top: 28px; }
+.ex { position: relative; overflow: hidden; }
+.ex > :not(.scatter) { position: relative; }
+.ex .scatter, .ex .sc { color: var(--disc); }
+.ex .sc { opacity: calc(var(--o) * 1.3); }
+
+/* ---------- the session sheet and the fresh result use the discipline colour too ---------- */
+.sheet-card { padding: 0; }
+.sheet-head { position: relative; overflow: hidden; padding: 24px 24px 28px; background: var(--band, #111111); color: #fff; text-align: center; }
+.sheet-head > :not(.scatter) { position: relative; }
+.sheet-head .row { justify-content: center; flex-wrap: wrap; }
+.sheet-head .kicker { justify-content: center; color: rgb(255 255 255 / 0.9); }
+.sheet-head .kicker i { background: #fff; }
+.sheet-head .btn { border-color: rgb(255 255 255 / 0.55); background: transparent; color: #fff; }
+.sheet-head .numeral small { color: rgb(255 255 255 / 0.85); }
+.sheet-head .chip { border-color: rgb(255 255 255 / 0.55); background: transparent; color: #fff; }
+.sheet-head .chip i { background: #fff; }
+.sheet-head .scatter, .sheet-head .sc { color: #fff; }
+.sheet-body { padding-top: 20px; }
+.hero-tile { position: relative; overflow: hidden; background: var(--hero, var(--band)); }
+.hero-tile > * { position: relative; }
+.hero-tile .meter { background: rgb(255 255 255 / 0.3); }
+.hero-tile .meter > div { background: #fff; }
+.hero-tile .kicker i { background: #fff; }
+.hero-tile .chip { border-color: rgb(255 255 255 / 0.55); background: transparent; color: #fff; }
+.hero-tile .chip i { background: #fff; }
+.band.home .wtop { background: var(--surface); color: var(--fg); }
+.sheet-head { flex: none; }
+.field input, .two input { font: 500 18px/1.3 var(--body); letter-spacing: 0; text-transform: none; }
+
+/* ---------- empty pages show the shape of the full ones ---------- */
+.ghostchart { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--border); }
+.ghostchart svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ghostchart p { position: relative; max-width: 240px; padding: 8px 14px; border-radius: 999px; background: var(--bg); text-align: center; }
+.ghosts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+.ghost, .ghostrow { border-radius: 16px; background: var(--surface); }
+.ghost { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 24px 20px; }
+.ghost i, .ghostrow i { display: block; height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--border-soft) 0%, var(--border) 50%, var(--border-soft) 100%); background-size: 200% 100%; animation: shimmer 1.8s linear infinite; }
+.ghost i:nth-child(1) { width: 40px; height: 40px; border-radius: 50%; }
+.ghost i:nth-child(2) { width: 70%; }
+.ghost i:nth-child(3) { width: 50%; }
+.ghostrows { display: flex; flex-direction: column; gap: 8px; }
+.ghostrow { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px; }
+.ghostrow i:nth-child(1) { width: 56px; height: 24px; }
+.ghostrow i:nth-child(2) { width: 40%; }
+.ghostnote { margin-top: 12px; text-align: center; }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .ghost i, .ghostrow i { animation: none; } }
+
+/* the bottom bar always hugs the bottom of the screen; nothing may make the page wider than the screen */
+html, body { overflow-x: clip; max-width: 100%; }
+
+/* phone: the page scrolls in the browser's own viewport and the bar is fixed to the bottom edge of that viewport */
+@media (max-width: 700px) {
+  html { overflow-y: auto; height: auto; }
+  .tabs { position: fixed; inset: auto 0 0 0; top: auto; width: 100%; height: var(--tabbar); }
+}
+
+/* ---------- result: readable on the coloured card, and a replay that always has a size ---------- */
+.hero-tile .numeral small, .hero-tile .muted, .hero-tile .sub, .hero-tile .small { color: rgb(255 255 255 / 0.92); }
+.hero-tile .numeral { color: #fff; }
+.stage { display: block; position: relative; width: min(100%, calc(56vh * var(--ar, 0.5625))); aspect-ratio: var(--ar, 0.5625); margin-inline: auto; }
+.stage video { position: absolute; inset: 0; width: 100%; height: 100%; max-height: none; object-fit: contain; }
+
+/* ---------- phone: the session sheet is a full-width sheet from the bottom, advice cards sit in the middle ---------- */
+@media (max-width: 700px) {
+  .sheet { padding: max(16px, env(safe-area-inset-top, 0px)) 0 0; align-items: flex-end; }
+  .sheet-card { width: 100%; max-height: 100%; border-radius: 24px 24px 0 0; }
+  .sheet-body { padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+  .recs { padding-inline: 32px; }
+  .recs > * { flex: 0 0 100%; scroll-snap-align: center; scroll-snap-stop: always; }
+  .sheet-body .recs { padding-inline: 28px; }
+}
+
+.wtop .wdot { position: absolute; top: 9px; right: 9px; width: 9px; height: 9px; border-radius: 50%; background: #ff5000; box-shadow: 0 0 0 2px var(--bg); }
+
+/* ---------- the test buttons: a copy of the tab bar, with the buttons in the row where the tab items sit ---------- */
+.wizbtns { display: none; }
+body.wizard .wizbtns { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex; align-items: flex-start; gap: 10px; min-height: var(--tabbar); height: var(--tabbar); padding: 0 var(--pad) env(safe-area-inset-bottom); background: var(--bg); }
+body.wizard .wizbtns .btn { margin-top: 2px; min-height: 52px; height: 52px; padding-block: 0; font-size: 17px; white-space: nowrap; box-shadow: none; }
+.wizbtns #wA { flex: 3; }
+.wizbtns #wB { flex: 2; }
+.wizbtns .btn[hidden] { display: none; }
+.wizbtns .btn.primary { border-color: var(--disc, #111); background: var(--disc, #111); color: #fff; }
+.wizbtns .btn:disabled, .wizbtns .btn.primary:disabled { opacity: 1; background: var(--surface-2); border-color: transparent; color: var(--muted); }
+body.wizard #view { padding-bottom: calc(var(--tabbar) + 24px); }
+body.wizard .toast { bottom: calc(var(--tabbar) + 12px); }
+@media (max-width: 700px) {
+  body.wizard .tabs { display: none; }
+  body.wizard .wizbtns { background: color-mix(in srgb, var(--bg) 82%, transparent); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
+}
+@media (min-width: 701px) {
+  body.wizard .wizbtns { justify-content: center; align-items: center; min-height: 0; height: auto; padding: 12px var(--pad) 16px; }
+  body.wizard .wizbtns .btn { margin-top: 0; max-width: 320px; }
+}
+
+/* every step uses the bar the same way: the other way on the left (40%), the main action on the right (60%) */
+.wizbtns #wA { flex: 3 1 0; min-width: 0; }
+.wizbtns #wB { flex: 2 1 0; min-width: 0; }
+body.wizard .wizbtns .btn { padding-inline: 14px; overflow: hidden; text-overflow: ellipsis; }
+/* the film step: nothing above the guide until a clip is chosen */
+.section[data-step="2"]:has(#info:empty) { display: none; }

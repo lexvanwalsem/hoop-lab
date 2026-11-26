@@ -127,7 +127,7 @@ export function volumeChart(canvas: HTMLCanvasElement, weeks: { label: string; v
   setDefaults();
   return new Chart(canvas, {
     type: 'bar',
-    data: { labels: weeks.map((w) => w.label), datasets: [{ label: 'Reps', data: weeks.map((w) => w.value), backgroundColor: css('--fg'), borderRadius: 0, borderSkipped: false, maxBarThickness: 40 }] },
+    data: { labels: weeks.map((w) => w.label), datasets: [{ label: 'Reps', data: weeks.map((w) => w.value), backgroundColor: css('--train'), borderRadius: 4, borderSkipped: false, maxBarThickness: 40 }] },
     options: {
       responsive: true,
       maintainAspectRatio: false,

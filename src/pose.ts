@@ -1,5 +1,5 @@
 import { FilesetResolver, ObjectDetector, PoseLandmarker } from '@mediapipe/tasks-vision';
-import { VIDEO_ERROR } from './video';
+import { armFrame, VIDEO_ERROR } from './video';
 
 export interface Pt {
   x: number; // normalized 0..1
@@ -82,6 +82,26 @@ function waitFor(el: HTMLVideoElement, event: 'loadedmetadata' | 'seeked', timeo
   });
 }
 
+/**
+ * Moves the video to a time and waits until that frame is ready. A long or high-resolution clip (4K, HEVC) can need a while per seek,
+ * so it waits up to 20 seconds, and a seek that goes unanswered is tried once more from a slightly different time.
+ */
+async function seekTo(video: HTMLVideoElement, t: number): Promise<void> {
+  if (Math.abs(video.currentTime - t) < 1e-4) return; // already there: the browser would not report a seek
+  for (let attempt = 0; ; attempt++) {
+    const seeked = waitFor(video, 'seeked', 20000);
+    const frame = armFrame(video);
+    video.currentTime = t + attempt * 0.0007;
+    try {
+      await seeked;
+      await frame();
+      return;
+    } catch (e) {
+      if (attempt >= 1 || (e instanceof Error && e.message === VIDEO_ERROR)) throw e;
+    }
+  }
+}
+
 /** Steps through the video at `fps` and runs pose and ball detection on every step. Pass a signal to cancel. */
 export async function extractPose(
   video: HTMLVideoElement,
@@ -101,9 +121,7 @@ export async function extractPose(
   try {
     for (let i = 0; i < count; i++) {
       if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError');
-      const seeked = waitFor(video, 'seeked', 5000);
-      video.currentTime = (i + 0.5) / fps; // middle of frame i, so a seek always lands on the same frame
-      await seeked;
+      await seekTo(video, (i + 0.5) / fps); // middle of frame i, so a seek always lands on the same frame
       const ts = Math.round((i * 1000) / fps);
       const result = landmarker.detectForVideo(video, ts);
       const lm = result.landmarks[0];

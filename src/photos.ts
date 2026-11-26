@@ -1,3 +1,4 @@
+import { armFrame } from './video';
 import { snapBox } from './snapview';
 import type { Snap } from './snapshots';
 
@@ -82,11 +83,12 @@ export async function clearPhotos(): Promise<void> {
 function seek(video: HTMLVideoElement, time: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('seek timed out')), 4000);
+    const frame = armFrame(video);
     video.addEventListener(
       'seeked',
       () => {
         clearTimeout(timer);
-        resolve();
+        void frame().then(resolve);
       },
       { once: true },
     );

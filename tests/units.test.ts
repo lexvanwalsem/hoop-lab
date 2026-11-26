@@ -223,12 +223,12 @@ test('broken snapshots are dropped when loading', () => {
   assert.deepEqual(sanitizeSnaps('nope'), []);
 });
 
-test('the turn is required for a shot but only advised for a jump', () => {
+test('the turn is required for a shot but any angle is fine for a jump', () => {
   const front = person(0.2, 0.88, 0.4);
   assert.equal(checkFraming(front, 9 / 16, 120, 'required').ready, false);
   const jump = checkFraming(front, 9 / 16, 120, 'advised');
   assert.equal(jump.ready, true);
-  assert.match(jump.say, /joint angles/i);
+  assert.ok(jump.checks.every((c) => c.ok));
 });
 
 // ---- a jump marked by hand ----

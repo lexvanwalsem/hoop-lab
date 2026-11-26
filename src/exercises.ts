@@ -51,3 +51,10 @@ export const EXERCISES: Exercise[] = [
   { name: 'Backspin shots lying down', group: 'shooting', level: 'Beginner', sets: 3, reps: 15, why: 'A fast, relaxed wrist flick gives backspin and a soft touch.', cues: ['Lie on your back and shoot the ball straight up.', 'Snap the wrist through the ball.', 'The ball should spin backwards and come straight down.', 'Catch it without moving your hands.'] },
   { name: 'Catch-and-shoot', group: 'shooting', level: 'Intermediate', sets: 3, reps: 8, why: 'A quick, repeatable release from a pass.', cues: ['Have your feet ready before the ball arrives.', 'Catch low, go straight into the dip.', 'Same shot as form shooting, just faster.', 'Take only as many as you can keep clean.'] },
 ];
+
+/** What belongs to each test: the jumps get strength and jumps, the dunk leans on fast reactive work, the shot gets shooting and leg strength. */
+export function exercisesFor(kind: 'standing' | 'dunk' | 'shot'): Exercise[] {
+  if (kind === 'shot') return EXERCISES.filter((e) => e.group === 'shooting' || ['Back squat', 'Split squat', 'Calf raise'].includes(e.name));
+  const list = kind === 'dunk' ? EXERCISES.filter((e) => e.name !== 'Countermovement jump') : EXERCISES.filter((e) => e.group !== 'shooting');
+  return list.filter((e) => e.group !== 'shooting');
+}

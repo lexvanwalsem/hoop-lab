@@ -15,16 +15,16 @@ import { probeVideo, type VideoInfo } from './video';
 import { openFramingCheck } from './camera';
 import { MAX_PITCH, MAX_ROLL, type Tilt } from './framing';
 import { installHelp, keepAwake, tick, toast, watchUpdates } from './native';
-import { EXERCISES, GROUP_LABEL, GROUP_NOTE, type Exercise, type Group } from './exercises';
+import { EXERCISES, exercisesFor, GROUP_LABEL, GROUP_NOTE, type Exercise, type Group } from './exercises';
 import { clearPhotos, deletePhotos, getPhotoUrl, keepPhotos, savePhotos, setKeepPhotos } from './photos';
 import { snapSvg } from './snapview';
 import { buildSnapshots, type Snap } from './snapshots';
-import { framingPanel, icon, jumpFigure, runFigures, sparkline } from './art';
+import { framingPanel, icon, runFigures, sparkline } from './art';
 import { gauge } from './gauge';
 
 const data: Data = load();
 const app = document.getElementById('app')!;
-type Tab = 'dashboard' | 'analyze' | 'log';
+type Tab = 'dashboard' | 'analyze' | 'log' | 'settings';
 let tab: Tab = 'dashboard';
 let charts: Chart[] = [];
 
@@ -32,7 +32,38 @@ const KIND_LABEL: Record<Kind, string> = { standing: 'Standing jump', dunk: 'Dun
 const KIND_SHORT: Record<Kind, string> = { standing: 'Jump', dunk: 'Dunk', shot: 'Shot' };
 const KIND_ICON: Record<Kind, string> = { standing: 'jump', dunk: 'bolt', shot: 'ball' };
 const KIND_DESC: Record<Kind, string> = { standing: 'Jump as high as you can from a stand. Height, power, dip and landing.', dunk: 'A run-up jump. Approach speed and how far your hand clears the rim.', shot: 'Your shooting form. Release, arc, flick and follow-through, per shot.' };
+/** Each discipline has its own colour and its own wording, so the pages feel made for what you are doing. */
+const THEME: Record<Kind, { title: string; sub: string; film: string; reco: string; noun: string }> = {
+  standing: { title: 'Standing jump', sub: 'Your vertical from a stand: height, power, dip and landing.', film: 'Film your jump', reco: 'Record your jump', noun: 'jump' },
+  dunk: { title: 'Dunk approach', sub: 'A run-up jump: approach speed and how far your hand clears the rim.', film: 'Film your approach', reco: 'Record your approach', noun: 'approach jump' },
+  shot: { title: 'Jump shot', sub: 'Your shooting form: release, arc, flick and follow-through, per shot.', film: 'Film your shot', reco: 'Record your shot', noun: 'shot' },
+};
+/** The solid colour of each discipline, the same in light and dark: white text sits on it. */
+const BAND: Record<Kind, string> = { standing: '#ff5000', dunk: '#6e0ff6', shot: '#1151ff' };
 const KIND_COLOR: Record<Kind, string> = { standing: 'var(--jump)', dunk: 'var(--dunk)', shot: 'var(--shot)' };
+/**
+ * A handful of the card's icon, scattered over its background at random sizes and angles, drifting slowly.
+ * The positions come from the card's name, so a card always looks the same and nothing moves when the page redraws.
+ */
+function scatter(name: string, seed: string, cols: number, rows: number, keep: number, max: number): string {
+  let h = 2166136261;
+  for (const c of seed) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+  const rnd = (): number => {
+    h = Math.imul(h ^ (h >>> 15), 2246822507) + 0x9e3779b9;
+    return ((h >>> 0) % 10000) / 10000;
+  };
+  // the card is a grid of cells, a cell is a grid of four quarters: an icon sits in one quarter, so none overlap and none pile up
+  const cells = Array.from({ length: cols * rows }, (_, i) => i).filter((i) => !(rows >= 3 && Math.floor(i / cols) === 1 && i % cols > 0 && i % cols < cols - 1)).sort(() => rnd() - 0.5).slice(0, keep);
+  const html = cells
+    .map((i) => {
+      const x = ((i % cols) + 0.5 + (rnd() < 0.5 ? -0.17 : 0.17)) / cols;
+      const y = (Math.floor(i / cols) + 0.5 + (rnd() < 0.5 ? -0.17 : 0.17)) / rows;
+      const s = Math.round(max * (0.6 + rnd() * 0.4));
+      return `<span class="sc" style="--x:${(x * 100).toFixed(1)}%;--y:${(y * 100).toFixed(1)}%;--s:${s}px;--r:${Math.round(rnd() * 70 - 35)}deg;--o:${(0.08 + rnd() * 0.08).toFixed(2)};--t:${(5 + rnd() * 6).toFixed(1)}s;--w:${(-rnd() * 6).toFixed(1)}s">${icon(name, 24)}</span>`;
+    })
+    .join('');
+  return `<span class="scatter" aria-hidden="true">${html}</span>`;
+}
 const css = (name: string): string => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const esc = (s: string): string =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -44,12 +75,12 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').match
 
 // ---------- shell, navigation, motion ----------
 
-const TAB_ICON: Record<Tab, string> = { dashboard: 'dashboard', analyze: 'analyze', log: 'dumbbell' };
+const TAB_ICON: Record<Tab, string> = { dashboard: 'dashboard', analyze: 'analyze', log: 'dumbbell', settings: 'dashboard' };
 let inked = false;
 
 /** Announcement bar, header and tabs are built once, so they never flicker or move when you switch pages. */
 function shell(): void {
-  const tabs: [Tab, string][] = [['dashboard', 'Today'], ['analyze', 'Analyze'], ['log', 'Training']];
+  const tabs: [Tab, string][] = [['dashboard', 'Home'], ['analyze', 'Analyze'], ['log', 'Training']];
   app.innerHTML = `<header><div class="wrap"><a class="brand" href="#dashboard" aria-label="Hoop Lab, home">Hoop Lab<b>.</b></a><nav class="tabs" aria-label="Pages"><i class="tab-ink no-anim"></i>${tabs
       .map(([id, label]) => `<button class="tab" data-tab="${id}" aria-label="${label}">${icon(TAB_ICON[id], 22)}<span>${label}</span></button>`)
       .join('')}</nav><div class="head-right"><button class="jobpill" id="jobpill" hidden></button></div></div></header>
@@ -60,7 +91,7 @@ function shell(): void {
 
 // ---------- routing: every page has an address, so reload, links and the back button work ----------
 
-const TABS: Tab[] = ['dashboard', 'analyze', 'log'];
+const TABS: Tab[] = ['dashboard', 'analyze', 'log', 'settings'];
 const OLD_TABS: Record<string, Tab> = { jump: 'analyze', filming: 'analyze', guide: 'analyze' }; // addresses from before the pages were merged
 
 function routeFromHash(): { tab: Tab; session?: string } {
@@ -198,6 +229,10 @@ async function show(next: Tab, soft = false): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 140));
     if (token !== showToken) return; // a newer click took over
   }
+  view.classList.remove('themed');
+  delete view.dataset.kind;
+  document.body.classList.remove('wizard');
+  document.querySelector('.wizbtns')?.remove();
   charts.forEach((c) => c.destroy());
   charts = [];
   stopFigures();
@@ -210,6 +245,7 @@ async function show(next: Tab, soft = false): Promise<void> {
     dashboard,
     analyze,
     log,
+    settings,
   })[tab](view);
   phoneLayout(view);
   animateIn(view, soft);
@@ -404,16 +440,17 @@ function openSheet(s: Session): void {
   const recs = recommend(s.metrics);
   const el = document.createElement('div');
   el.className = 'sheet';
-  el.innerHTML = `<div class="sheet-card" role="dialog" aria-modal="true" aria-label="${KIND_LABEL[s.kind]} details" style="--c:${KIND_COLOR[s.kind]}">
-    <div class="sheet-head">
+  el.innerHTML = `<div class="sheet-card" role="dialog" aria-modal="true" aria-label="${KIND_LABEL[s.kind]} details" style="--c:${KIND_COLOR[s.kind]};--band:${BAND[s.kind]}">
+    <div class="sheet-head">${scatter(KIND_ICON[s.kind], s.id, 6, 2, 5, 34)}
       <div class="row between"><div class="kicker"><i></i>${KIND_LABEL[s.kind]}, ${shortDate(s.date)}${s.demo ? ' (demo data)' : ''}</div><div class="row"><button class="btn small" data-delete>Delete</button><button class="btn small" data-close>Close</button></div></div>
-      <div class="row" style="gap:28px;margin-top:8px"><div class="numeral md">${count(s.headline)}<small>${unit}</small></div><div class="chips">${statusChips(s.metrics)}</div></div>
+      <div class="row" style="gap:20px;margin-top:12px"><div class="numeral md">${count(s.headline)}<small>${unit}</small></div><div class="chips">${statusChips(s.metrics)}</div></div>
     </div>
     <div class="sheet-body">
+      <div class="section-head"><h2>What to work on</h2></div>
+      ${recs.length ? recCards(recs) : '<p class="muted">Nothing flagged in this session.</p>'}
+      <div class="section-head" style="margin-top:32px"><h2>Numbers</h2></div>
       <div class="metrics rise">${s.metrics.map(tile).join('')}</div>
       ${snapSection(s.snaps ?? [], s.id)}
-      <div class="section-head" style="margin-top:32px"><h2>How to improve</h2></div>
-      ${recs.length ? recCards(recs) : '<p class="muted">Nothing flagged in this session.</p>'}
     </div>
   </div>`;
   sheetEl = el;
@@ -448,6 +485,20 @@ function openSheet(s: Session): void {
 }
 // ---------- dashboard ----------
 
+/** The shape of a chart before there is data: a grid, a faint rising line and one sentence. */
+function ghostChart(text: string): string {
+  return `<div class="ghostchart"><svg viewBox="0 0 320 150" preserveAspectRatio="none" aria-hidden="true"><g stroke="currentColor" stroke-width="1" opacity="0.5">${[20, 55, 90, 125].map((y) => `<line x1="0" x2="320" y1="${y}" y2="${y}"/>`).join('')}</g><polyline points="10,120 60,105 110,112 160,80 210,70 260,45 310,30" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="3 8" stroke-linecap="round"/></svg><p class="muted">${text}</p></div>`;
+}
+
+/** Grey placeholder cards for what a full page would show. */
+function ghostCards(n: number): string {
+  return `<div class="ghosts">${Array.from({ length: n }, () => '<div class="ghost"><i></i><i></i><i></i></div>').join('')}</div><p class="muted small ghostnote">Your first test shows what to work on.</p>`;
+}
+
+function ghostRows(n: number): string {
+  return `<div class="ghostrows">${Array.from({ length: n }, () => '<div class="ghostrow"><i></i><i></i></div>').join('')}</div>`;
+}
+
 function focusAreas(): string {
   const counts = new Map<string, { rec: Rec; n: number; of: number }>();
   for (const kind of ['standing', 'dunk', 'shot'] as Kind[]) {
@@ -481,7 +532,6 @@ function dashboard(view: HTMLElement): void {
   const isPb = last !== undefined && standing.length > 1 && last.headline > Math.max(...standing.slice(0, -1).map((s) => s.headline));
   const jumpPct = best === null ? 0 : goal ? Math.min(100, (best / goal) * 100) : last ? (last.headline / best) * 100 : 0;
   const shotAvg = shots.length ? avg(shots.map((s) => s.headline)) : 0;
-  const hide = data.sessions.length ? '' : ' is-empty';
   const isDemo = data.sessions.some((s) => s.demo) || data.exercises.some((e) => e.demo);
   const active = new Set([...data.sessions.map((s) => s.date), ...data.exercises.map((e) => e.date)]);
   const dots = Array.from({ length: 7 }, (_, i) => new Date(Date.now() - (6 - i) * 864e5))
@@ -489,9 +539,11 @@ function dashboard(view: HTMLElement): void {
     .join('');
 
   view.innerHTML = `
-    <section class="band"><div class="wrap">
-      <div class="hero-row rise"><div class="stack" style="gap:16px"><div class="kicker">Today</div><h1 class="display">Ready to jump?</h1></div></div>
-      <div class="stats">
+    <section class="band home"><div class="wrap">
+      <button class="wtop" data-go="settings" type="button" aria-label="Settings${due ? ', back up your data' : ''}" style="left:auto;right:16px">${icon('gear', 22)}${due ? '<i class="wdot"></i>' : ''}</button>
+      <div class="hero-row rise"><div class="stack" style="gap:16px"><h1 class="display">Your numbers</h1></div></div>
+      <div class="testrow rise"><button class="btn small" data-test="standing" type="button">Test jump</button><button class="btn small" data-test="dunk" type="button">Test dunk</button><button class="btn small" data-test="shot" type="button">Test shot</button></div>
+      <div class="kpis">
         <div class="stat rise" style="--c:var(--jump)">
           <div class="kicker"><i></i>Jump</div>
           <div class="numeral">${best === null ? '-' : count(best)}${best === null ? '' : '<small>cm</small>'}</div>
@@ -518,62 +570,29 @@ function dashboard(view: HTMLElement): void {
 
     <div class="wrap">
       ${isDemo ? `<div class="demo-bar rise"><span class="chip">Demo data</span><span class="muted small">These numbers are made up. Analyze a video to see your own.</span><button class="btn small" id="clearDemo">Clear demo data</button></div>` : ''}
-      ${data.sessions.length ? '' : `<section class="section rise"><div class="tile"><div class="welcome"><div class="stack"><h2>Start here</h2><p class="muted">Three steps: pick the test, film it, analyze it. You get your numbers and what to work on.</p><div class="row"><button class="btn primary" data-go="analyze">Test yourself</button><button class="btn" id="loadDemo">Try with demo data</button></div></div>${jumpFigure()}</div></div></section>`}
 
-      <section class="section${hide}">
+      <section class="section">
         <div class="section-head rise"><h2>Trend</h2>
           <div class="pills" id="trendseg">${(['standing', 'dunk', 'shot', 'vol'] as const).map((k) => `<button class="pill ${k === trendSel ? 'on' : ''}" data-t="${k}" aria-pressed="${k === trendSel}">${k === 'vol' ? 'Training' : KIND_SHORT[k]}</button>`).join('')}</div></div>
         <div class="trend rise" id="trendcard"><div class="row between"><div class="kicker"><i></i><span id="trendname"></span></div><span class="muted small" id="trendnote"></span></div><div class="chartbox" id="chartbox"><canvas id="c1"></canvas></div></div>
       </section>
 
-      <section class="section${hide}"><div class="section-head rise"><h2>Work on this</h2></div>${focusAreas()}</section>
+      <section class="section"><div class="section-head rise"><h2>Work on this</h2></div>${data.sessions.length ? focusAreas() : ghostCards(3)}</section>
 
-      <section class="section${hide}"><div class="section-head rise"><h2>Recent sessions</h2></div>
-        ${data.sessions.length ? `<div class="sessions">${data.sessions.slice(-6).reverse().map((s) => `<button class="srow ${s.kind} rise" data-sid="${s.id}"><span class="big">${s.headline.toFixed(0)}<small>${s.kind === 'shot' ? '/100' : 'cm'}</small></span><span class="what"><b>${KIND_LABEL[s.kind]}</b><span>${shortDate(s.date)}</span></span><span class="chips">${statusChips(s.metrics)}</span><span class="go">&rsaquo;</span></button>`).join('')}</div>` : '<p class="muted">No sessions yet.</p>'}
+      <section class="section"><div class="section-head rise"><h2>Recent sessions</h2></div>
+        ${data.sessions.length ? `<div class="sessions">${data.sessions.slice(-6).reverse().map((s) => `<button class="srow ${s.kind} rise" data-sid="${s.id}"><span class="big">${s.headline.toFixed(0)}<small>${s.kind === 'shot' ? '/100' : 'cm'}</small></span><span class="what"><b>${KIND_LABEL[s.kind]}</b><span>${shortDate(s.date)}</span></span><span class="chips">${statusChips(s.metrics)}</span><span class="go">&rsaquo;</span></button>`).join('')}</div>` : ghostRows(3)}
       </section>
 
-      <details class="fold"${!phoneQuery.matches || due ? ' open' : ''}><summary>Settings and backup${due ? ' <span class="chip warn">Back up</span>' : ''}</summary>
-      <section class="section"><div class="section-head rise"><h2>Jump goal</h2></div>
-        <div class="tile row between rise"><p class="muted">Set a target for your standing jump. The Jump meter fills towards it.</p><div class="row"><div style="width:140px"><input id="goal" type="number" min="10" max="200" placeholder="Goal in cm" value="${goal || ''}" aria-label="Jump goal in centimetres"></div><button class="btn primary" id="setGoal">${goal ? 'Update goal' : 'Set goal'}</button></div></div>
-      </section>
-
-      ${installSection()}
-      <section class="section" style="padding-bottom:80px"><div class="section-head rise"><h2>Your data</h2></div>
-        ${due ? `<div class="demo-bar rise" role="status"><span class="chip warn">Back up</span><span class="muted small">${due === 'never' ? 'Your results only live on this device. Export a backup so you do not lose them.' : 'Your last backup is more than a month old. Export a new one.'}</span><button class="btn small" id="remindExport">Export backup</button></div>` : ''}
-        <div class="tile row between rise"><p class="muted">Everything is stored in this browser only, and videos are never kept. Export a backup to move it to another device or keep it safe.<br><span class="small" id="storeNote">${lastBackup() ? `Last backup: ${shortDate(lastBackup()!.slice(0, 10))}.` : 'No backup yet.'}</span></p>
-          <div class="row"><button class="btn" id="exportData">Export backup</button><button class="btn" id="importData">Import backup</button><button class="btn" id="wipeData">Delete all</button><input type="file" id="importFile" accept="application/json,.json" hidden></div></div>
-        <p class="small error" id="dataNote" role="status" style="min-height:1.5em;margin-top:10px"></p>
-      </section>
-      </details>
+      ${data.sessions.length ? '' : '<section class="section"><div class="empty rise"><p class="muted">Want to look around first?</p><button class="btn" id="loadDemo" type="button">Try with demo data</button></div></section>'}
     </div>
-    ${data.sessions.length ? '<div class="fab"><button class="btn primary big" id="fabRec" type="button">Record</button><button class="btn big" id="fabUpload" type="button">Upload</button><input id="fabFile" type="file" accept="video/*,.mp4,.mov,.m4v,.webm" hidden></div>' : ''}`;
-  // shortcuts for people who know the app: they skip the questions and land in Analyze with the last test filled in
-  const fabFile = view.querySelector<HTMLInputElement>('#fabFile');
-  if (fabFile) {
-    view.querySelector<HTMLButtonElement>('#fabRec')!.onclick = () => openFramingCheck({ kind: selKind, askKind: pickKind, onRecorded: recorded });
-    view.querySelector<HTMLButtonElement>('#fabUpload')!.onclick = () => fabFile.click();
-    fabFile.onchange = () => {
-      const f = fabFile.files?.[0];
-      fabFile.value = '';
-      if (f) recorded(f);
-    };
-  }
+`;
+  view.querySelectorAll<HTMLButtonElement>('[data-test]').forEach((b) => (b.onclick = () => {
+    setKind(b.dataset.test as Kind);
+    wizardStart = 1;
+    navigate('analyze');
+  }));
   view.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => (b.onclick = () => navigate(b.dataset.go as Tab)));
   view.querySelectorAll<HTMLButtonElement>('[data-sid]').forEach((b) => (b.onclick = () => (location.hash = `session/${b.dataset.sid}`)));
-  const installBtn = view.querySelector<HTMLButtonElement>('#installBtn');
-  if (installBtn) installBtn.onclick = () => installHelp()?.action?.();
-  view.querySelector<HTMLButtonElement>('#setGoal')!.onclick = () => {
-    data.goalCm = Number(view.querySelector<HTMLInputElement>('#goal')!.value) || 0;
-    save(data);
-    void show('dashboard', true);
-  };
-
-  // demo data, backup and wipe
-  const note = (text: string, ok = false): void => {
-    const el = view.querySelector<HTMLElement>('#dataNote')!;
-    el.textContent = text;
-    el.classList.toggle('error', !ok);
-  };
   view.querySelector<HTMLButtonElement>('#loadDemo')?.addEventListener('click', () => {
     const demo = demoData();
     data.sessions.push(...demo.sessions);
@@ -588,6 +607,92 @@ function dashboard(view: HTMLElement): void {
     save(data);
     void show('dashboard');
   });
+  // one big chart with a switch: the middle layer, shown only when asked for
+  const draw = (sel: typeof trendSel): void => {
+    trendSel = sel;
+    charts.forEach((c) => c.destroy());
+    charts = [];
+    const card = view.querySelector<HTMLElement>('#trendcard')!;
+    card.style.setProperty('--c', sel === 'vol' ? 'var(--train)' : KIND_COLOR[sel]);
+    view.querySelectorAll<HTMLButtonElement>('[data-t]').forEach((b) => {
+      b.classList.toggle('on', b.dataset.t === sel);
+      b.setAttribute('aria-pressed', String(b.dataset.t === sel));
+    });
+    const box = view.querySelector<HTMLElement>('#chartbox')!;
+    box.innerHTML = '<canvas id="c1"></canvas>';
+    view.querySelector<HTMLElement>('#trendname')!.textContent = sel === 'vol' ? 'Weekly training volume' : sel === 'shot' ? 'Shot score' : `${KIND_LABEL[sel]} height`;
+    view.querySelector<HTMLElement>('#trendnote')!.textContent = sel === 'vol' ? 'reps per week' : sel === 'standing' && goal ? `goal ${goal} cm` : '';
+    const canvas = box.querySelector<HTMLCanvasElement>('canvas')!;
+    if (sel === 'vol') {
+      if (data.exercises.length) whenVisible(canvas, () => charts.push(volumeChart(canvas, weeksData())));
+      else box.innerHTML = ghostChart('Log an exercise to see your weekly volume');
+      return;
+    }
+    const hex = css(sel === 'standing' ? '--jump' : sel === 'dunk' ? '--dunk' : '--shot');
+    const series: Series[] = [{ label: KIND_SHORT[sel], kind: sel, color: hex }];
+    const mine = data.sessions.filter((s) => s.kind === sel);
+    if (mine.length === 1) {
+      box.innerHTML = `<div class="empty"><div class="numeral md">${mine[0].headline.toFixed(0)}<small>${sel === 'shot' ? '/100' : 'cm'}</small></div><p class="muted">Your first result. The trend starts with the second one.</p></div>`;
+      return;
+    }
+    if (mine.length) whenVisible(canvas, () => charts.push(trendChart(canvas, data.sessions, series, sel === 'shot' ? '' : 'cm', sel === 'standing' ? goal : 0)));
+    else box.innerHTML = ghostChart('Your first test starts the trend');
+  };
+  view.querySelectorAll<HTMLButtonElement>('[data-t]').forEach((b) => (b.onclick = () => draw(b.dataset.t as typeof trendSel)));
+  draw(trendSel);
+}
+
+// ---------- settings ----------
+
+const BACK_ICON = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
+
+function settings(view: HTMLElement): void {
+  const due = backupDue(data, lastBackup());
+  const goal = data.goalCm || 0;
+  view.innerHTML = `
+    <section class="band home"><div class="wrap"><button class="wtop" id="wTop" type="button" aria-label="Back">${BACK_ICON}</button><div class="stack rise" style="gap:16px"><h1 class="display">Settings</h1></div></div></section>
+    <div class="wrap">
+      <section class="section"><div class="section-head rise"><h2>About you</h2></div>
+        <div class="tile stack rise"><div class="two"><label class="field">Height (cm)<input id="pHeight" type="number" min="120" max="240" value="${data.heightCm || ''}" placeholder="Height"></label><label class="field">Weight (kg)<input id="pWeight" type="number" min="30" max="200" value="${data.weightKg || ''}" placeholder="Weight"></label></div>
+          <p class="muted small">These are the starting values when you analyze a video. They stay on this device.</p><button class="btn primary" id="pSave" type="button">Save</button></div></section>
+      <section class="section"><div class="section-head rise"><h2>Jump goal</h2></div>
+        <div class="tile row between rise"><p class="muted">Set a target for your standing jump. The Jump meter fills towards it.</p><div class="row"><div style="width:140px"><input id="goal" type="number" min="10" max="200" placeholder="Goal in cm" value="${goal || ''}" aria-label="Jump goal in centimetres"></div><button class="btn primary" id="setGoal">${goal ? 'Update goal' : 'Set goal'}</button></div></div>
+      </section>
+
+      ${installSection()}
+      <section class="section" style="padding-bottom:80px"><div class="section-head rise"><h2>Your data</h2></div>
+        ${due ? `<div class="demo-bar rise" role="status"><span class="chip warn">Back up</span><span class="muted small">${due === 'never' ? 'Your results only live on this device. Export a backup so you do not lose them.' : 'Your last backup is more than a month old. Export a new one.'}</span><button class="btn small" id="remindExport">Export backup</button></div>` : ''}
+        <div class="tile row between rise"><p class="muted">Everything is stored in this browser only, and videos are never kept. Export a backup to move it to another device or keep it safe.<br><span class="small" id="storeNote">${lastBackup() ? `Last backup: ${shortDate(lastBackup()!.slice(0, 10))}.` : 'No backup yet.'}</span></p>
+          <div class="row"><button class="btn" id="exportData">Export backup</button><button class="btn" id="importData">Import backup</button><button class="btn" id="wipeData">Delete all</button><input type="file" id="importFile" accept="application/json,.json" hidden></div></div>
+        <p class="small error" id="dataNote" role="status" style="min-height:1.5em;margin-top:10px"></p>
+      </section>
+
+      <p class="muted small" style="text-align:center;padding:8px 0 24px">Version ${__BUILD__}</p>
+    </div>`;
+  view.querySelector<HTMLButtonElement>('#wTop')!.onclick = () => navigate('dashboard');
+  view.querySelector<HTMLButtonElement>('#pSave')!.onclick = () => {
+    const h = Number(view.querySelector<HTMLInputElement>('#pHeight')!.value);
+    const w = Number(view.querySelector<HTMLInputElement>('#pWeight')!.value);
+    if ((h && (h < 120 || h > 240)) || (w && (w < 30 || w > 200))) return toast('Check the numbers: height 120-240 cm, weight 30-200 kg');
+    data.heightCm = h || 0;
+    data.weightKg = w || 0;
+    save(data);
+    toast('Saved');
+  };
+  const installBtn = view.querySelector<HTMLButtonElement>('#installBtn');
+  if (installBtn) installBtn.onclick = () => installHelp()?.action?.();
+  view.querySelector<HTMLButtonElement>('#setGoal')!.onclick = () => {
+    data.goalCm = Number(view.querySelector<HTMLInputElement>('#goal')!.value) || 0;
+    save(data);
+    void show('settings', true);
+  };
+
+  // demo data, backup and wipe
+  const note = (text: string, ok = false): void => {
+    const el = view.querySelector<HTMLElement>('#dataNote')!;
+    el.textContent = text;
+    el.classList.toggle('error', !ok);
+  };
   const exportNow = async (): Promise<void> => {
     if (!data.sessions.length && !data.exercises.length) return note('Nothing to export yet.');
     if (!(await saveFile(`hoop-lab-backup-${today()}.json`, exportBackup(data), 'application/json'))) return;
@@ -610,7 +715,7 @@ function dashboard(view: HTMLElement): void {
     const res = importBackup(await f.text(), data);
     if (typeof res === 'string') return note(res);
     if (!save(data)) return note('Imported, but the browser could not store it (storage full or blocked).');
-    void show('dashboard', true);
+    void show('settings', true);
   };
   view.querySelector<HTMLButtonElement>('#wipeData')!.onclick = () => {
     if (!confirm('Delete all sessions, exercises, your goal and your height and weight from this browser? Export a backup first if you want to keep them.')) return;
@@ -621,42 +726,10 @@ function dashboard(view: HTMLElement): void {
     data.heightCm = 0;
     data.weightKg = 0;
     save(data);
-    void show('dashboard');
+    void show('settings');
   };
 
-  // one big chart with a switch: the middle layer, shown only when asked for
-  const draw = (sel: typeof trendSel): void => {
-    trendSel = sel;
-    charts.forEach((c) => c.destroy());
-    charts = [];
-    const card = view.querySelector<HTMLElement>('#trendcard')!;
-    card.style.setProperty('--c', sel === 'vol' ? 'var(--fg)' : KIND_COLOR[sel]);
-    view.querySelectorAll<HTMLButtonElement>('[data-t]').forEach((b) => {
-      b.classList.toggle('on', b.dataset.t === sel);
-      b.setAttribute('aria-pressed', String(b.dataset.t === sel));
-    });
-    const box = view.querySelector<HTMLElement>('#chartbox')!;
-    box.innerHTML = '<canvas id="c1"></canvas>';
-    view.querySelector<HTMLElement>('#trendname')!.textContent = sel === 'vol' ? 'Weekly training volume' : sel === 'shot' ? 'Shot score' : `${KIND_LABEL[sel]} height`;
-    view.querySelector<HTMLElement>('#trendnote')!.textContent = sel === 'vol' ? 'reps per week' : sel === 'standing' && goal ? `goal ${goal} cm` : '';
-    const canvas = box.querySelector<HTMLCanvasElement>('canvas')!;
-    if (sel === 'vol') {
-      if (data.exercises.length) whenVisible(canvas, () => charts.push(volumeChart(canvas, weeksData())));
-      else box.innerHTML = '<p class="muted">Log exercises in the Training tab to see your weekly volume.</p>';
-      return;
-    }
-    const hex = css(sel === 'standing' ? '--jump' : sel === 'dunk' ? '--dunk' : '--shot');
-    const series: Series[] = [{ label: KIND_SHORT[sel], kind: sel, color: hex }];
-    const mine = data.sessions.filter((s) => s.kind === sel);
-    if (mine.length === 1) {
-      box.innerHTML = `<div class="empty"><div class="numeral md">${mine[0].headline.toFixed(0)}<small>${sel === 'shot' ? '/100' : 'cm'}</small></div><p class="muted">Your first result. The trend starts with the second one.</p></div>`;
-      return;
-    }
-    if (mine.length) whenVisible(canvas, () => charts.push(trendChart(canvas, data.sessions, series, sel === 'shot' ? '' : 'cm', sel === 'standing' ? goal : 0)));
-    else box.innerHTML = '<p class="muted">No data yet. Analyze a video to start your trend.</p>';
-  };
-  view.querySelectorAll<HTMLButtonElement>('[data-t]').forEach((b) => (b.onclick = () => draw(b.dataset.t as typeof trendSel)));
-  draw(trendSel);
+
 }
 
 // ---------- analyze ----------
@@ -680,6 +753,9 @@ function setKind(k: Kind): void {
   }
 }
 let selKind: Kind = loadKind();
+const STEPS = ['Test', 'Film', 'Details', 'Result'];
+/** Set by Home: a new test always begins at the first step. */
+let wizardStart: number | null = null;
 let chosen: { file: File; video: HTMLVideoElement; info: VideoInfo; tilt?: Tilt } | null = null;
 
 /** A clip recorded in the framing view: it waits here until the Analyze page can take it. */
@@ -707,33 +783,41 @@ function tiltNote(t?: Tilt): string {
   return `<span class="chip ${bad ? 'warn' : 'good'}">${bad ? `phone tilted ${Math.abs(t.pitch).toFixed(0)} up/down, ${Math.abs(t.roll).toFixed(0)} sideways` : 'phone upright'}</span>`;
 }
 
+/** Colours the whole page for the chosen discipline: the band, the main buttons, the dots and the guide. */
+function theme(view: HTMLElement): void {
+  view.classList.add('themed');
+  view.dataset.kind = selKind;
+}
+
 function analyze(view: HTMLElement): void {
+  theme(view);
   view.innerHTML = `
-    <section class="band"><div class="wrap"><div class="stack rise" style="gap:16px"><div class="kicker">Analyze</div><h1 class="display">Test yourself</h1><p class="sub" style="max-width:520px">Record or upload a video of a jump or a shot. Body tracking measures it and tells you what to work on.</p></div></div></section>
+    <section class="band"><div class="wrap"><button class="wtop" id="wTop" type="button" aria-label="Back">${BACK_ICON}</button><div class="stack rise" style="gap:16px"><h1 class="display" id="ptitle"></h1><p class="sub" id="psub" style="max-width:520px"></p></div>
+      <div class="wsteps" id="steps">${STEPS.map((s, i) => `<button type="button" class="wstep" data-step-go="${i + 1}"><b></b><span>${s}</span></button>`).join('')}</div></div></section>
     <div class="wrap">
-      <section class="section"><div class="section-head rise"><h2>1. What are you testing?</h2></div>
-        <div class="picker rise" id="kinds">${(['standing', 'dunk', 'shot'] as Kind[]).map((k) => `<button class="pick ${k} ${k === selKind ? 'on' : ''}" data-k="${k}" aria-pressed="${k === selKind}">${icon(KIND_ICON[k], 32)}<span><span class="name">${KIND_LABEL[k]}</span><p>${KIND_DESC[k]}</p></span></button>`).join('')}</div></section>
+      <section class="section" data-step="1"><div class="section-head rise"><h2>What are you testing?</h2></div>
+        <div class="picker kinds rise" id="kinds">${(['standing', 'dunk', 'shot'] as Kind[]).map((k) => `<button class="pick ${k} ${k === selKind ? 'on' : ''}" data-k="${k}" aria-pressed="${k === selKind}">${scatter(KIND_ICON[k], k, 4, 3, 7, 40)}<span><span class="name">${KIND_LABEL[k]}</span><p>${KIND_DESC[k]}</p></span></button>`).join('')}</div></section>
 
-      <div class="guide-grid" id="kindguide"></div>
-
-      <section class="section"><div class="section-head rise"><h2>2. Add a video</h2></div>
+      <section class="section" data-step="2"><div class="section-head rise"><h2 id="h2add">Film your jump</h2></div>
         <div class="col rise">
-          <button class="btn primary big" data-cam>Record with the camera</button>
+          <button class="btn primary big" data-cam id="recBtn">Record with the camera</button>
           <button class="btn big" id="drop" type="button">${chosen ? 'Choose another video' : 'Choose a video'}</button>
           <p class="muted small">Or pick a clip from your camera roll or your files.</p>
           <input id="file" type="file" accept="video/*,.mp4,.mov,.m4v,.webm" hidden>
           <div id="info" class="chips"></div>
         </div></section>
 
-      <section class="section"><div class="section-head rise"><h2>3. Analyze</h2></div>
+      <div class="guide-grid" data-step="2" id="kindguide"></div>
+
+      <section class="section" data-step="3"><div class="section-head rise"><h2>Your details</h2></div>
         <div class="col rise">
-          <div class="two">
-            <label class="field">Height (cm)<input id="height" type="number" min="120" max="240" value="${data.heightCm || ''}" placeholder="193"></label>
-            <label class="field">Weight (kg)<input id="weight" type="number" min="30" max="200" value="${data.weightKg || ''}" placeholder="95"></label>
+          <div id="form" class="stack"><div class="two">
+            <label class="field" id="heightField">Height (cm)<input id="height" type="number" min="120" max="240" value="${data.heightCm || ''}" placeholder="193"></label>
+            <label class="field" id="weightField">Weight (kg)<input id="weight" type="number" min="30" max="200" value="${data.weightKg || ''}" placeholder="95"></label>
           </div>
-          <p class="muted small">They set the scale and the power estimate, so use your real values.</p>
+          <p class="muted small" id="bodyNote"></p>
           <p class="muted small" id="scaleNote"></p>
-          <label class="check"><input type="checkbox" id="keepPhotos"${keepPhotos() ? ' checked' : ''}><span>Keep a photo of each key moment<small class="muted">Stored on this device only, about 25 KB each, not in backups.</small></span></label>
+          <label class="check"><input type="checkbox" id="keepPhotos"${keepPhotos() ? ' checked' : ''}><span>Keep a photo of each key moment<small class="muted">Stored on this device only, about 25 KB each, not in backups.</small></span></label></div>
           <button id="run" class="btn primary big">Analyze</button>
           <div class="busy" id="busy" hidden><div class="numeral md" id="pct">0<small>%</small></div><div class="stack" style="flex:1;min-width:0"><div class="meter"><div id="pbar" style="width:0"></div></div><p id="status" class="muted" role="status">Choose a video to begin.</p><div class="row"><button class="btn small" id="cancel" hidden>Cancel</button></div></div></div>
           <details class="more" id="tools" hidden><summary>More ways to measure</summary>
@@ -745,7 +829,7 @@ function analyze(view: HTMLElement): void {
           </details>
         </div></section>
 
-      <section class="section" id="calib" hidden><div class="section-head rise"><h2>Set your scale</h2></div>
+      <section class="section" data-step="3" id="calib" hidden><div class="section-head rise"><h2>Set your scale</h2></div>
         <div class="tile stack rise">
           <p class="muted">Pick a frame where you stand tall and still. Drag the top line to the top of your head and the bottom line to the soles of your feet. That distance is your height, so the app knows how big a pixel is.</p>
           <div class="calbox" id="calbox"><div class="calline" data-l="top" style="top:15%"><i></i><span>Top of head</span></div><div class="calline" data-l="bottom" style="top:88%"><i></i><span>Soles</span></div></div>
@@ -754,7 +838,7 @@ function analyze(view: HTMLElement): void {
           <p class="muted" id="calOut" role="status"></p>
         </div></section>
 
-      <section class="section" id="reach" hidden><div class="section-head rise"><h2>Measure reach</h2></div>
+      <section class="section" data-step="3" id="reach" hidden><div class="section-head rise"><h2>Measure reach</h2></div>
         <div class="tile stack rise">
           <p class="muted">The classic reach test. Stand at a wall or backboard with the phone on a tripod and do not move it. The wall and you must be at the same distance from the camera.</p>
           <ol class="howto"><li>Pick a frame where you stand tall at the wall, arm up. Put the lines on your head, soles and fingertip, then tap step 1.</li><li>Pick the frame where your fingertip is highest in the jump. Move only the fingertip line, then tap step 2.</li></ol>
@@ -765,7 +849,7 @@ function analyze(view: HTMLElement): void {
           <button class="btn primary big" id="rSave" type="button" disabled>Save this jump</button>
         </div></section>
 
-      <section class="section" id="manual" hidden><div class="section-head rise"><h2>Measure by hand</h2></div>
+      <section class="section" data-step="3" id="manual" hidden><div class="section-head rise"><h2>Measure by hand</h2></div>
         <div class="tile stack rise">
           <p class="muted">This works from any angle and distance, even when the tracker cannot follow you. Step to the first frame your feet are in the air and mark it, then to the first frame they touch the floor again.</p>
           <div id="mvbox"></div>
@@ -776,12 +860,78 @@ function analyze(view: HTMLElement): void {
           <button class="btn primary big" id="mSave" type="button" disabled>Save this jump</button>
         </div></section>
 
-      <div id="out" class="scroll-target"></div>
+      <div id="out" data-step="4" class="scroll-target"></div>
     </div>`;
-  const $ = <T extends HTMLElement>(id: string): T => view.querySelector<T>('#' + id)!;
+  const $ = <T extends HTMLElement>(id: string): T => (view.querySelector<T>('#' + id) ?? document.getElementById(id)) as T;
+  // the test buttons live inside the tab bar itself, so they sit exactly where the tabs sit
+  document.querySelector('.wizbtns')?.remove();
+  const wiz = document.createElement('div');
+  wiz.className = 'wizbtns';
+  wiz.innerHTML = '<button class="btn big" id="wB" type="button"></button><button class="btn primary big" id="wA" type="button"></button>';
+  // pinned to the bottom edge of the screen, the way the tab bar is
+  document.body.append(wiz);
   $<HTMLInputElement>('keepPhotos').onchange = (e) => setKeepPhotos((e.target as HTMLInputElement).checked);
   const statusEl = $('status');
   let shown: Result[] | null = null;
+
+  // the four steps: one screen each, one clear button
+  let step = wizardStart ?? (job.running ? 3 : job.results ? 4 : chosen ? 3 : 1);
+  if (wizardStart !== null) shown = job.results; // a new test starts clean: the old result is not shown again
+  wizardStart = null;
+  const centreKind = (): void => {
+    const kinds = $('kinds');
+    const on = kinds.querySelector<HTMLElement>('.on');
+    if (phoneQuery.matches && on) kinds.scrollLeft = on.offsetLeft + on.offsetWidth / 2 - kinds.clientWidth / 2;
+  };
+  /** The two floating buttons change with the step: the main action on the right, the other way on the left. */
+  const paintBar = (): void => {
+    wiz.style.setProperty('--disc', BAND[selKind]);
+    const A = $<HTMLButtonElement>('wA');
+    const B = $<HTMLButtonElement>('wB');
+    const set = (btn: HTMLButtonElement, label: string, fn: () => void, disabled = false): void => {
+      btn.hidden = !label;
+      btn.textContent = label;
+      btn.disabled = disabled;
+      btn.onclick = fn;
+    };
+    if (step === 1) {
+      set(A, 'Film it', () => goStep(2));
+      set(B, '', () => undefined);
+    } else if (step === 2) {
+      if (chosen) {
+        set(A, 'Continue', () => goStep(3));
+        set(B, 'Choose another', () => $('drop').click());
+      } else {
+        set(A, 'Record', () => $('recBtn').click());
+        set(B, 'Choose video', () => $('drop').click());
+      }
+    } else if (step === 3) {
+      set(A, job.running ? 'Analyzing...' : 'Analyze', () => $('run').click(), job.running);
+      set(B, job.running ? 'Cancel' : '', () => $('cancel').click());
+    } else {
+      set(A, 'New test', () => goStep(1));
+      set(B, 'Done', () => navigate('dashboard'));
+    }
+  };
+  const goStep = (n: number, scroll = true): void => {
+    step = n;
+    document.body.classList.add('wizard');
+    view.querySelectorAll<HTMLElement>('[data-step]').forEach((el) => el.classList.toggle('offstep', Number(el.dataset.step) !== n));
+    view.querySelectorAll<HTMLButtonElement>('[data-step-go]').forEach((b) => {
+      const i = Number(b.dataset.stepGo);
+      b.className = 'wstep ' + (i === n ? 'on' : i < n ? 'done' : '');
+      b.disabled = i >= n || n === 4;
+    });
+    const head = [['What are you testing?', 'Swipe to choose.'], [THEME[selKind].film, THEME[selKind].sub], ['Your details', ''], ['Your result', '']][n - 1];
+    $('ptitle').textContent = head[0];
+    $('psub').textContent = head[1];
+    $('psub').hidden = !head[1];
+    paintBar();
+    if (n === 1) requestAnimationFrame(centreKind);
+    if (scroll) window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+  };
+  $('wTop').onclick = () => (step === 1 || step === 4 ? navigate('dashboard') : goStep(step - 1));
+  view.querySelectorAll<HTMLButtonElement>('[data-step-go]').forEach((b) => (b.onclick = () => goStep(Number(b.dataset.stepGo))));
 
   /** Draws the job on this page. Registered as paintJob, so it keeps up while you are on another tab and catches up when you come back. */
   const paint = (): void => {
@@ -794,23 +944,37 @@ function analyze(view: HTMLElement): void {
     run.disabled = job.running;
     run.textContent = job.running ? 'Analyzing...' : 'Analyze';
     $('cancel').hidden = !job.running;
-    $('manualBtn').hidden = !chosen || job.running;
+    $('form').hidden = job.running;
+    paintBar();
+    $('manualBtn').hidden = selKind === 'shot' || !chosen || job.running;
     $('busy').hidden = !chosen && !job.running && !job.failed;
     $('tools').hidden = !chosen || job.running;
     $('calBtn').hidden = !chosen || job.running;
-    $('reachBtn').hidden = !chosen || job.running;
+    $('reachBtn').hidden = selKind === 'shot' || !chosen || job.running;
     if (job.results && job.video && job.pose && job.results !== shown && !job.running) {
       shown = job.results;
+      goStep(4);
       renderResults($('out'), job.video, job.pose, job.results, job.ids ?? []);
     }
   };
   paintJob = paint;
+  goStep(step, false);
   paint();
 
   /** The guide of the chosen test, right under the swipe row. */
   const renderGuide = (): void => {
+    const t = THEME[selKind];
+    const shot = selKind === 'shot';
+    theme(view);
+    goStep(step, false);
+    $('recBtn').textContent = t.reco;
+    $('weightField').hidden = shot;
+    $('heightField').childNodes[0].textContent = shot ? 'Height (cm, optional)' : 'Height (cm)';
+    $('bodyNote').textContent = shot ? 'Height only makes the distances in centimetres exact. Leave it empty and they are estimates.' : 'They set the scale and the power estimate, so use your real values.';
+    $('reachBtn').hidden = shot || !chosen || job.running;
+    $('manualBtn').hidden = shot || !chosen || job.running;
     const host = $('kindguide');
-    host.innerHTML = guideHtml(guideFor(selKind), true, false) + `<details class="tile guide"${phoneQuery.matches ? '' : ' open'}><summary><h2>What the camera should see</h2></summary>${framingPanel()}<div style="margin-top:16px"><button class="btn" data-cam>Check my framing with the camera</button></div></details>`;
+    host.innerHTML = guideHtml(guideFor(selKind), false, false) + `<details class="tile guide"${phoneQuery.matches ? '' : ' open'}><summary><h2>What the camera should see</h2></summary>${framingPanel()}<div style="margin-top:16px"><button class="btn" data-cam>Check my framing with the camera</button></div></details>`;
     settleGuide(host);
     phoneLayout(host);
   };
@@ -824,23 +988,63 @@ function analyze(view: HTMLElement): void {
   };
   renderInfo();
 
-  view.querySelectorAll<HTMLButtonElement>('[data-k]').forEach((b) => (b.onclick = () => {
-    setKind(b.dataset.k as Kind);
+  const choose = (k: Kind): void => {
+    if (k === selKind) return;
+    setKind(k);
     view.querySelectorAll<HTMLElement>('[data-k]').forEach((x) => {
-      x.classList.toggle('on', x === b);
-      x.setAttribute('aria-pressed', String(x === b));
+      x.classList.toggle('on', x.dataset.k === k);
+      x.setAttribute('aria-pressed', String(x.dataset.k === k));
     });
     renderInfo();
+  };
+  const kinds = $('kinds');
+  view.querySelectorAll<HTMLButtonElement>('[data-k]').forEach((b) => (b.onclick = () => {
+    choose(b.dataset.k as Kind);
+    if (phoneQuery.matches) b.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', inline: 'center', block: 'nearest' });
   }));
+  if (phoneQuery.matches) {
+    // the card in the middle is the chosen one: it is picked as soon as the swipe settles
+    const cards = [...kinds.children] as HTMLElement[];
+    const centre = (): HTMLElement => {
+      const mid = kinds.scrollLeft + kinds.clientWidth / 2;
+      return cards.reduce((a, c) => (Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid) < Math.abs(a.offsetLeft + a.offsetWidth / 2 - mid) ? c : a));
+    };
+    let settle = 0;
+    kinds.addEventListener('scroll', () => {
+      if (step !== 1) return;
+      clearTimeout(settle);
+      settle = window.setTimeout(() => choose(centre().dataset.k as Kind), 90);
+    }, { passive: true });
+    requestAnimationFrame(centreKind);
+  }
 
+  /** Safari only decodes and seeks a video that is part of the page, so it waits there, invisible, until it is needed. */
+  const parkVideo = (video: HTMLVideoElement): void => {
+    video.controls = false;
+    video.setAttribute('playsinline', '');
+    video.removeAttribute('style');
+    Object.assign(video.style, { position: 'fixed', left: '0', top: '0', width: '2px', height: '2px', opacity: '0', pointerEvents: 'none' });
+    document.body.append(video);
+  };
   const take = async (file: File, fps?: number, tilt?: Tilt): Promise<void> => {
     if (job.running) return; // one analysis at a time
+    chosen?.video.remove();
     const video = document.createElement('video');
     video.muted = true;
     video.playsInline = true;
+    video.preload = 'auto';
     video.src = URL.createObjectURL(file);
+    parkVideo(video);
     try {
       chosen = { file, video, info: await probeVideo(file, video, fps), tilt };
+      // a short play wakes the decoder, so the first seeks answer quickly on a phone
+      try {
+        await video.play();
+        video.pause();
+        video.currentTime = 0;
+      } catch {
+        // the browser refused: seeking still works, only the first seek may be slower
+      }
       manual.v = null;
       cal.v = null;
       reach.v = null;
@@ -858,10 +1062,9 @@ function analyze(view: HTMLElement): void {
       $('manual').hidden = true;
       $('drop').textContent = 'Choose another video';
       renderInfo();
-      // the next step is below: show it, and make the button easy to find
-      const needs = !Number($<HTMLInputElement>('height').value) || !Number($<HTMLInputElement>('weight').value);
-      const next = needs ? $('height') : $('run');
-      next.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+      // on to the details, with the next thing to do in view
+      goStep(3);
+      const needs = selKind !== 'shot' && (!Number($<HTMLInputElement>('height').value) || !Number($<HTMLInputElement>('weight').value));
       if (!needs) {
         $('run').classList.add('nudge');
         setTimeout(() => $('run').classList.remove('nudge'), 1600);
@@ -1111,14 +1314,17 @@ function analyze(view: HTMLElement): void {
       paint();
     };
     if (!chosen) return fail('Choose a video first.');
-    const height = Number($<HTMLInputElement>('height').value);
-    const weight = Number($<HTMLInputElement>('weight').value);
-    if (height < 120 || height > 240 || weight < 30 || weight > 200) return fail('Enter your real height (120-240 cm) and weight (30-200 kg) first. Scale and power depend on them.');
-    data.heightCm = height;
-    data.weightKg = weight;
+    const typed = Number($<HTMLInputElement>('height').value);
+    const noHeight = selKind === 'shot' && !typed; // a shot is judged on form: the height only turns distances into centimetres
+    const height = noHeight ? 175 : typed;
+    const weight = selKind === 'shot' ? data.weightKg || 80 : Number($<HTMLInputElement>('weight').value);
+    if (selKind === 'shot' ? !noHeight && (height < 120 || height > 240) : height < 120 || height > 240 || weight < 30 || weight > 200) return fail(selKind === 'shot' ? 'Height must be 120-240 cm, or leave it empty.' : 'Enter your real height (120-240 cm) and weight (30-200 kg) first. Scale and power depend on them.');
+    if (!noHeight) data.heightCm = height;
+    if (selKind !== 'shot') data.weightKg = weight;
     save(data);
 
     const { video, info } = chosen;
+    if (!video.isConnected) parkVideo(video);
     const kind = selKind;
     const started = performance.now();
     job.running = true;
@@ -1137,11 +1343,12 @@ function analyze(view: HTMLElement): void {
       const pose = await extractPose(video, info.sampleFps, (p) => {
         const el = (performance.now() - started) / 1000;
         job.progress = p;
-        job.status = `Tracking your body${kind === 'shot' ? ' and the ball' : ''}${p > 0.05 ? `, about ${Math.ceil(el / p - el)} s left` : ''}. You can switch tabs, but keep this one open.`;
+        job.status = `Tracking your body${kind === 'shot' ? ' and the ball' : ''}${p > 0.05 ? `, about ${Math.ceil(el / p - el)} s left` : ''}. Keep the app open until it is done.`;
         jobChanged();
       }, kind === 'shot', job.controller.signal);
       const level = levelPose(pose); // a phone that leaned sideways is turned back before measuring
       const results = kind === 'shot' ? analyzeShots(level.pose, height, data.noseAnkle) : analyzeJumps(level.pose, height, kind, weight, data.noseAnkle);
+      if (noHeight) results.forEach((r) => r.tips.push('No height was entered, so distances in centimetres (release height, jump height) are estimates for a 175 cm player.'));
       if (level.rollDeg) results.forEach((r) => r.tips.push(`The phone leaned about ${Math.abs(level.rollDeg).toFixed(0)} degrees sideways. That was corrected.`));
       const snaps = results.map((r) => buildSnapshots(pose, r));
       const ids = results.map(() => newId());
@@ -1213,8 +1420,7 @@ function renderResult(out: HTMLElement, video: HTMLVideoElement, pose: Pose, r: 
   const pct = isShot ? r.headline : (r.headline / bestSoFar) * 100;
   out.innerHTML = `
     <section class="section">
-      <div class="section-head rise"><h2>Result</h2></div>
-      <div class="hero-tile rise" style="--c:${KIND_COLOR[r.kind]}">
+      <div class="hero-tile rise" style="--c:${KIND_COLOR[r.kind]};--hero:${BAND[r.kind]}">
         <div class="kicker"><i></i>${KIND_LABEL[r.kind]}</div>
         <div class="numeral big">${count(r.headline)}<small>${isShot ? '/ 100' : 'cm'}</small></div>
         <div class="stack" style="gap:10px;max-width:420px"><div class="meter" style="--c:${KIND_COLOR[r.kind]}"><div data-w="${pct}"></div></div><span class="muted small">${isShot ? 'Shot score' : `${pct.toFixed(0)}% of your best`}</span></div>
@@ -1223,20 +1429,30 @@ function renderResult(out: HTMLElement, video: HTMLVideoElement, pose: Pose, r: 
         ${r.detectionRate < 0.85 ? `<p class="error small">Body found in only ${(r.detectionRate * 100).toFixed(0)}% of frames. Results may be unreliable.</p>` : ''}
       </div>
     </section>
+    <section class="section"><div class="section-head rise"><h2>What to work on</h2></div>
+      ${recs.length ? recCards(recs) : '<p class="muted">Nothing flagged. Keep it up and test again in 1-2 weeks.</p>'}
+      ${r.tips.length ? `<p class="muted small" style="margin-top:16px"><b>Notes:</b> ${r.tips.map(esc).join(' ')}</p>` : ''}
+      ${isShot ? '' : '<div style="margin-top:20px"><button class="btn" data-go="log">How to jump higher</button></div>'}
+    </section>
+    ${assignmentHtml(r.kind)}
     <div class="grid g12" id="resultgrid" style="margin-top:12px">
       <div class="tile rise" style="--c:${KIND_COLOR[r.kind]}"><div class="kicker" style="margin-bottom:14px"><i></i>Replay</div><div class="stage"><canvas></canvas></div>
         <div class="timeline">${r.marks.map((m, i) => `<button class="dot" data-mark="${i}" title="${m.name}" style="left:${markPos(r, m.frame).toFixed(1)}%"></button>`).join('')}<i class="head" style="left:0%"></i></div>
         <div class="pills">${r.marks.map((m, i) => `<button class="pill" data-mark="${i}">${m.name}</button>`).join('')}</div></div>
       <div class="tile rise"><div class="kicker" style="margin-bottom:14px">Metrics</div><div class="metrics">${r.metrics.map(tile).join('')}</div></div>
     </div>
-    ${snapSection(buildSnapshots(pose, r), sid)}
-    <section class="section"><div class="section-head rise"><h2>How to improve</h2></div>
-      ${recs.length ? recCards(recs) : '<p class="muted">Nothing flagged. Keep it up and test again in 1-2 weeks.</p>'}
-      ${r.tips.length ? `<p class="muted small" style="margin-top:16px"><b>Notes:</b> ${r.tips.map(esc).join(' ')}</p>` : ''}
-      ${isShot ? '' : '<div style="margin-top:20px"><button class="btn" data-go="log">How to jump higher</button></div>'}
-    </section>`;
+    ${snapSection(buildSnapshots(pose, r), sid)}`;
 
   out.querySelectorAll<HTMLButtonElement>('[data-go]').forEach((b) => (b.onclick = () => navigate(b.dataset.go as Tab)));
+  out.querySelectorAll<HTMLButtonElement>('[data-assign] [data-log]').forEach((b) => (b.onclick = () => {
+    const ex = EXERCISES.find((e) => e.name === b.dataset.log);
+    if (!ex) return;
+    data.exercises.push({ id: newId(), date: today(), name: ex.name, sets: ex.sets, reps: ex.reps, notes: '' });
+    save(data);
+    toast(`Logged ${ex.sets} x ${ex.reps} ${ex.name}`);
+    b.disabled = true;
+    b.textContent = 'Logged';
+  }));
   const adjust = out.querySelector<HTMLButtonElement>('[data-adjust]');
   if (adjust && sid) {
     const frameOf = (name: string): number => r.marks.find((m) => m.name === name)!.frame;
@@ -1247,23 +1463,40 @@ function renderResult(out: HTMLElement, video: HTMLVideoElement, pose: Pose, r: 
   animateIn(out);
   const stage = out.querySelector<HTMLElement>('.stage')!;
   const canvas = stage.querySelector('canvas')!;
+  video.removeAttribute('style'); // it was parked invisible while it was read
   video.controls = true;
   video.muted = true;
+  stage.style.setProperty('--ar', String(pose.width / pose.height));
   stage.prepend(video);
   canvas.width = pose.width;
   canvas.height = pose.height;
   const ctx = canvas.getContext('2d')!;
   const bone = '#ffffff';
-  video.currentTime = r.marks[0].frame / pose.fps; // start at the first phase
-  out.querySelectorAll<HTMLButtonElement>('[data-mark]').forEach((b) => (b.onclick = () => (video.currentTime = r.marks[Number(b.dataset.mark)].frame / pose.fps)));
+  // the frame on screen: the browser says which one it presented, otherwise the clock decides
+  const rv = (video as HTMLVideoElement & { requestVideoFrameCallback?: (cb: (now: number, meta: { mediaTime: number }) => void) => number }).requestVideoFrameCallback;
+  let shownAt = -1;
+  if (rv) {
+    const on = (_now: number, meta: { mediaTime: number }): void => {
+      shownAt = meta.mediaTime;
+      if (canvas.isConnected) rv.call(video, on);
+    };
+    rv.call(video, on);
+  }
+  const frameNow = (): number => (shownAt >= 0 ? Math.round(shownAt * pose.fps) : Math.floor(video.currentTime * pose.fps));
+  const at = (frame: number): void => {
+    shownAt = -1;
+    video.currentTime = (frame + 0.5) / pose.fps; // the middle of the frame, as when it was tracked
+  };
+  at(r.marks[0].frame); // start at the first phase
+  out.querySelectorAll<HTMLButtonElement>('[data-mark]').forEach((b) => (b.onclick = () => at(r.marks[Number(b.dataset.mark)].frame)));
 
   const draw = (): void => {
     if (!canvas.isConnected) return; // stop when this result is replaced
     // the playhead follows the video, so the timeline is alive while you scrub or play
     const head = out.querySelector<HTMLElement>('.timeline .head');
-    if (head) head.style.left = `${Math.max(0, Math.min(100, markPos(r, video.currentTime * pose.fps)))}%`;
+    if (head) head.style.left = `${Math.max(0, Math.min(100, markPos(r, frameNow())))}%`;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const lm = pose.frames[Math.min(pose.frames.length - 1, Math.round(video.currentTime * pose.fps))];
+    const lm = pose.frames[Math.max(0, Math.min(pose.frames.length - 1, frameNow()))];
     ctx.strokeStyle = bone;
     ctx.lineWidth = Math.max(3, pose.width / 220);
     ctx.lineCap = 'round';
@@ -1275,7 +1508,7 @@ function renderResult(out: HTMLElement, video: HTMLVideoElement, pose: Pose, r: 
       }
       ctx.stroke();
     }
-    const ball = pose.balls[Math.min(pose.balls.length - 1, Math.round(video.currentTime * pose.fps))];
+    const ball = pose.balls[Math.max(0, Math.min(pose.balls.length - 1, frameNow()))];
     if (ball) {
       ctx.strokeStyle = css('--jump');
       ctx.beginPath();
@@ -1299,7 +1532,7 @@ function guideHtml(sections: Section[], firstOpen: boolean, rise = true): string
     if (s.layout === 'week') {
       return `<div class="legend">${legend.map(([, l, c]) => `<span><i style="background:${c}"></i>${l}</span>`).join('')}</div><div class="week">${s.items.map((it) => `<div class="day ${it.tag ?? 'rest'}"><span class="dn">${esc(it.t)}</span>${icon(it.icon ?? 'check', 22)}<p>${esc(it.d)}</p></div>`).join('')}</div>`;
     }
-    return `<div class="cards">${s.items.map((it) => `<div class="cardi"><div class="bub">${icon(it.icon ?? 'check', 24)}</div><h3>${esc(it.t)}</h3><p>${esc(it.d)}</p></div>`).join('')}</div>`;
+    return `<div class="cards">${s.items.map((it) => `<div class="cardi">${scatter(it.icon ?? 'check', it.t, 4, 2, 4, 34)}<h3>${esc(it.t)}</h3><p>${esc(it.d)}</p></div>`).join('')}</div>`;
   };
   return sections
     .map((s, i) => {
@@ -1311,7 +1544,9 @@ function guideHtml(sections: Section[], firstOpen: boolean, rise = true): string
 
 /** Folding sections only fold on a phone; on a larger screen a click on the heading does nothing. */
 function settleGuide(root: HTMLElement): void {
-  root.querySelectorAll<HTMLElement>('details.guide > summary').forEach((s) => (s.onclick = (e) => !phoneQuery.matches && e.preventDefault()));
+  root.querySelectorAll<HTMLElement>('details.guide > summary').forEach((s) => (s.onclick = (e) => {
+    if (!phoneQuery.matches) e.preventDefault();
+  }));
   if (window.matchMedia('(max-width: 900px)').matches) root.querySelectorAll<HTMLElement>('.guide').forEach((el) => (el.style.gridColumn = 'auto'));
 }
 
@@ -1344,11 +1579,41 @@ function askKind(title: string): Promise<Kind | null> {
 
 // ---------- training log ----------
 
-let exGroup: Group = 'jumps';
+
+const ICON_OF: Record<Group, string> = { strength: 'dumbbell', jumps: 'jump', shooting: 'ball' };
+
+/** Three things to do this week, picked for the test and rotated so they change from one result to the next. */
+function assignmentHtml(kind: Kind): string {
+  const list = exercisesFor(kind);
+  const n = data.sessions.length;
+  const want: [Group, number][] = kind === 'shot' ? [['shooting', 2], ['strength', 1]] : [['jumps', 2], ['strength', 1]];
+  const picks: Exercise[] = [];
+  want.forEach(([g, count], gi) => {
+    const pool = list.filter((e) => e.group === g && e.level !== 'Advanced');
+    for (let k = 0; k < count && pool.length; k++) {
+      const e = pool[(n + gi + k) % pool.length];
+      if (!picks.includes(e)) picks.push(e);
+    }
+  });
+  return `<section class="section"><div class="section-head rise"><h2>Do this next</h2></div><p class="muted small note rise" style="text-align:center">Three things for this week. One tap logs them in Training. Test again in 1 to 2 weeks to see what moved.</p><div class="exlist" data-assign>${picks.map(exerciseCard).join('')}</div></section>`;
+}
 
 function exerciseCard(e: Exercise): string {
   const per = e.per ? ` ${e.per}` : '';
-  return `<article class="ex"><h3>${esc(e.name)}</h3><div class="chips"><span class="chip">${e.level}</span><span class="chip">${e.sets} x ${e.reps}${per}</span></div><p class="muted small">${esc(e.why)}</p><details class="ex-how"><summary>How to do it</summary><ul>${e.cues.map((c) => `<li>${esc(c)}</li>`).join('')}</ul></details><div class="row"><button class="btn small primary" data-log="${esc(e.name)}">Log ${e.sets} x ${e.reps}</button><a class="btn small" href="${exampleUrl(e.name)}" target="_blank" rel="noopener noreferrer">Watch</a></div></article>`;
+  return `<article class="ex">${scatter(ICON_OF[e.group], e.name, 3, 2, 3, 30)}<h3>${esc(e.name)}</h3><div class="chips"><span class="chip">${e.level}</span><span class="chip">${e.sets} x ${e.reps}${per}</span></div><p class="muted small">${esc(e.why)}</p><details class="ex-how"><summary>How to do it</summary><ul>${e.cues.map((c) => `<li>${esc(c)}</li>`).join('')}</ul></details><div class="row"><button class="btn small primary" data-log="${esc(e.name)}">Log ${e.sets} x ${e.reps}</button><a class="btn small" href="${exampleUrl(e.name)}" target="_blank" rel="noopener noreferrer">Watch</a></div></article>`;
+}
+
+const TRAIN_SUB: Record<Kind, string> = {
+  standing: 'Strength and jumps that raise your vertical.',
+  dunk: 'Fast, reactive jumps and the strength behind them.',
+  shot: 'Clean repetitions and the leg strength behind your range.',
+};
+const KIND_SHORT_TAB: Record<Kind, string> = { standing: 'Jump', dunk: 'Dunk', shot: 'Shot' };
+
+/** The guide that belongs to the discipline: how to jump higher for the two jumps, nothing extra for the shot. */
+function planHtml(): string {
+  if (selKind === 'shot') return '';
+  return `<details class="fold plan"${phoneQuery.matches ? '' : ' open'}><summary>How to jump higher</summary><div class="guide-grid">${guideHtml(jumpGuide, false)}</div></details>`;
 }
 
 function log(view: HTMLElement): void {
@@ -1356,20 +1621,21 @@ function log(view: HTMLElement): void {
   const week = data.exercises.filter((e) => e.date >= weekAgo);
   const sets = week.reduce((a, e) => a + e.sets, 0);
   const reps = week.reduce((a, e) => a + e.sets * e.reps, 0);
-  const groups = Object.keys(GROUP_LABEL) as Group[];
+  theme(view);
   view.innerHTML = `
     <section class="band"><div class="wrap">
-      <div class="stack rise" style="gap:16px"><div class="kicker">Training</div><h1 class="display">Build the engine</h1></div>
-      <div class="stats">
+      <div class="stack rise" style="gap:16px"><h1 class="display">Train for the ${THEME[selKind].noun}</h1><p class="sub">${TRAIN_SUB[selKind]}</p></div>
+      <div class="pills tabsbar rise" id="exgroups">${(['standing', 'dunk', 'shot'] as Kind[]).map((k) => `<button class="pill ${k === selKind ? 'on' : ''}" data-g="${k}" aria-pressed="${k === selKind}">${KIND_SHORT_TAB[k]}</button>`).join('')}</div>
+      <div class="kpis">
         <div class="stat train rise"><div class="kicker"><i></i>Sessions</div><div class="numeral">${count(week.length)}<small>/${WEEK_TARGET}</small></div><div class="meter"><div data-w="${Math.min(100, (week.length / WEEK_TARGET) * 100)}"></div></div><p class="sub">Exercises logged in the last 7 days</p></div>
         <div class="stat train rise"><div class="kicker"><i></i>Sets</div><div class="numeral">${count(sets)}</div><p class="sub">Sets in the last 7 days</p></div>
         <div class="stat train rise"><div class="kicker"><i></i>Reps</div><div class="numeral">${count(reps)}</div><p class="sub">Sets x reps in the last 7 days</p></div>
       </div>
     </div></section>
     <div class="wrap">
-      <section class="section"><div class="section-head rise"><h2>Exercises</h2><div class="pills" id="exgroups">${groups.map((g) => `<button class="pill ${g === exGroup ? 'on' : ''}" data-g="${g}" aria-pressed="${g === exGroup}">${GROUP_LABEL[g]}</button>`).join('')}</div></div>
-        <p class="muted small note rise" id="exnote"></p>
-        <div class="exlist" id="exlist"></div></section>
+      
+      <div id="kindplan">${planHtml()}</div>
+      <section class="section"><div id="exlist"></div></section>
 
       <section class="section"><div class="section-head rise"><h2>Weekly volume</h2></div>${data.exercises.length ? '<div class="chartbox rise"><canvas id="vol"></canvas></div>' : '<div class="empty rise"><p class="muted">Log an exercise above and your weekly volume shows up here.</p></div>'}</section>
 
@@ -1387,22 +1653,27 @@ function log(view: HTMLElement): void {
           </form></section>
       </details>
 
-      <details class="fold"${phoneQuery.matches ? '' : ' open'}><summary>How to jump higher</summary>
-        <section class="section" style="padding-bottom:80px"><div class="section-head rise fold-title"><h2>How to jump higher</h2></div><div class="guide-grid">${guideHtml(jumpGuide, false)}</div></section>
-      </details>
+
     </div>`;
   settleGuide(view);
   const paintEx = (): void => {
-    view.querySelector<HTMLElement>('#exnote')!.textContent = GROUP_NOTE[exGroup];
-    view.querySelector<HTMLElement>('#exlist')!.innerHTML = EXERCISES.filter((e) => e.group === exGroup).map(exerciseCard).join('');
+    theme(view);
+    const groups = (['strength', 'jumps', 'shooting'] as Group[]).filter((g) => exercisesFor(selKind).some((e) => e.group === g));
+    view.querySelector<HTMLElement>('#exlist')!.innerHTML = groups
+      .map((g) => `<div class="exgroup"><h3 class="exhead">${GROUP_LABEL[g]}</h3><p class="muted small note">${GROUP_NOTE[g]}</p><div class="exlist">${exercisesFor(selKind).filter((e) => e.group === g).map(exerciseCard).join('')}</div></div>`)
+      .join('');
+    view.querySelector<HTMLElement>('#kindplan')!.innerHTML = planHtml();
+    settleGuide(view);
     view.querySelectorAll<HTMLButtonElement>('#exgroups [data-g]').forEach((b) => {
-      b.classList.toggle('on', b.dataset.g === exGroup);
-      b.setAttribute('aria-pressed', String(b.dataset.g === exGroup));
+      b.classList.toggle('on', b.dataset.g === selKind);
+      b.setAttribute('aria-pressed', String(b.dataset.g === selKind));
     });
+    view.querySelector<HTMLElement>('.band h1')!.textContent = `Train for the ${THEME[selKind].noun}`;
+    view.querySelector<HTMLElement>('.band .sub')!.textContent = TRAIN_SUB[selKind];
   };
   paintEx();
   view.querySelectorAll<HTMLButtonElement>('#exgroups [data-g]').forEach((b) => (b.onclick = () => {
-    exGroup = b.dataset.g as Group;
+    setKind(b.dataset.g as Kind);
     paintEx();
   }));
   // one tap logs the suggested sets and reps for today
@@ -1458,7 +1729,13 @@ document.addEventListener('click', (e) => {
 
 // Offline support and durable storage. Only in the production build: during development a cache gets in the way.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  window.addEventListener('load', () => void navigator.serviceWorker.register('./sw.js').catch(() => undefined));
+  // the address carries the build, so every new version of the app installs a new worker; coming back to the app checks again
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker
+      .register(`./sw.js?v=${__BUILD__}`)
+      .then((reg) => document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && void reg.update().catch(() => undefined)))
+      .catch(() => undefined);
+  });
   watchUpdates();
 }
 

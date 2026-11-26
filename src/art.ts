@@ -6,6 +6,7 @@ const ICONS: Record<string, string> = {
   jump: '<path d="M12 20V5M5.5 11.5L12 5l6.5 6.5"/>',
   camera: '<path d="M3 8.5a2 2 0 0 1 2-2h2l1.5-2h7l1.5 2h2a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.6"/>',
   dumbbell: '<path d="M6.5 7v10M3.5 9.5v5M17.5 7v10M20.5 9.5v5M6.5 12h11"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   ruler: '<path d="M3 17L17 3l4 4L7 21z"/><path d="M8 12l2 2M11 9l2 2M14 6l2 2"/>',
   film: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M7.5 4v16M16.5 4v16M3 9h4.5M3 15h4.5M16.5 9H21M16.5 15H21"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6L6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4"/>',
@@ -188,16 +189,18 @@ export function runFigures(root: HTMLElement, reduceMotion: boolean): () => void
 export const phaseNames = PHASES;
 /** Top view: where the phone goes relative to the athlete. */
 export function cameraDiagram(inline = false): string {
+  // seen from above: the phone on the left, the athlete on the right, turned 45 degrees to the line between them
   return `<svg class="art cam${inline ? ' inline' : ''}" viewBox="0 0 360 220" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M62 110L250 52V168z" fill="currentColor" opacity="0.1" stroke="none"/>
-    <path class="flow" d="M62 110H238" stroke-dasharray="5 7"/>
-    <g transform="translate(26 92)"><rect width="30" height="36" rx="7" fill="currentColor" stroke="none" opacity="0.9"/><circle cx="15" cy="18" r="6" fill="var(--on-accent)" stroke="none"/></g>
-    <circle cx="276" cy="110" r="13" fill="currentColor" stroke="none"/>
-    <path d="M276 126v22M276 148l-8 18M276 148l8 18M276 132l-14 10M276 132l14 10"/>
-    <path d="M62 188h188M62 182v12M250 182v12"/>
-    <text x="156" y="210" text-anchor="middle" fill="currentColor" stroke="none" font-size="15" font-weight="700">4-5 m</text>
-    <path d="M300 74a30 30 0 0 1 0 72" stroke-dasharray="3 6" opacity="0.7"/>
-    <text x="318" y="114" fill="currentColor" stroke="none" font-size="13" font-weight="700">90&#176;</text>
+    <path d="M62 100L268 40V160z" fill="currentColor" opacity="0.07" stroke="none"/>
+    <path d="M62 100H262" stroke-dasharray="5 7" opacity="0.6"/>
+    <g transform="translate(24 82)"><rect width="32" height="36" rx="8" fill="currentColor" stroke="none"/><circle cx="16" cy="18" r="6" fill="var(--bg)" stroke="none"/></g>
+    <path d="M259 119L295 81" stroke-width="9" opacity="0.9"/>
+    <circle cx="277" cy="100" r="13" fill="currentColor" stroke="none"/>
+    <path d="M277 100L249 72M249 88V72H265"/>
+    <path d="M230 100A47 47 0 0 1 244 67" stroke="var(--good)" stroke-width="3"/>
+    <text x="196" y="84" text-anchor="middle" fill="var(--good)" stroke="none" font-size="22" font-weight="800">45&#176;</text>
+    <path d="M62 178h200M62 172v12M262 172v12" opacity="0.6"/>
+    <text x="162" y="203" text-anchor="middle" fill="currentColor" stroke="none" font-size="14" font-weight="600">4-5 m</text>
   </svg>`;
 }
 

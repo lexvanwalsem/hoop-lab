@@ -88,8 +88,8 @@ export function checkFraming(lm: LivePt[] | null, aspect: number, brightness?: n
   }
   checks.push({
     id: 'angle',
-    label: angle === 'required' ? 'Turned 45 degrees' : 'Turned 45 degrees (best for joint angles)',
-    ok: found && ratio >= MIN_SHOULDER_RATIO && ratio <= MAX_SHOULDER_RATIO,
+    label: angle === 'required' ? 'Turned 45 degrees' : 'Any angle works for jump height',
+    ok: angle === 'required' ? found && ratio >= MIN_SHOULDER_RATIO && ratio <= MAX_SHOULDER_RATIO : found,
     hint: !found ? NOBODY : ratio > MAX_SHOULDER_RATIO ? 'Turn a little away from the camera, to about 45 degrees. Then your knee and elbow bend show and the tracker still sees both sides of you.' : 'Turn a little towards the camera, to about 45 degrees. Fully sideways hides your far arm and leg from the tracker.',
     ...(angle === 'advised' ? { advisory: true } : {}),
   });

@@ -123,3 +123,14 @@ export async function probeVideo(file: File, video: HTMLVideoElement, knownFps?:
   const sampleFps = fps > 62 ? fps / Math.ceil(fps / 60) : fps;
   return { fps, sampleFps, duration: video.duration, width: video.videoWidth, height: video.videoHeight };
 }
+
+/**
+ * Call before seeking. The returned function waits until the new frame has really been presented (or a moment has passed),
+ * because a phone can report "seeked" while the picture is still the previous frame, which would put the skeleton one frame off.
+ */
+export function armFrame(video: HTMLVideoElement): () => Promise<void> {
+  const v = video as HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number };
+  if (!v.requestVideoFrameCallback) return () => Promise.resolve();
+  const shown = new Promise<void>((resolve) => v.requestVideoFrameCallback!(() => resolve()));
+  return () => Promise.race([shown, new Promise<void>((resolve) => setTimeout(resolve, 150))]);
+}
